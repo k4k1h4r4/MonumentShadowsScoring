@@ -508,7 +508,6 @@ let event, entry, sequence, scores = {}, currentIdx = 0, editingIdx = null, pend
 const params = new URLSearchParams(location.search);
 const entryId = params.get('entry');
 const eventId  = params.get('event');
-const playerStartHole = parseInt(params.get('startHole') || '', 10);
 
 async function init() {
   if (!entryId || !eventId) {
@@ -536,8 +535,8 @@ async function init() {
   scData.forEach(s => { scores[s.hole] = s.strokes; });
 
   // Build sequence
-  const effectiveStartHole = Number.isInteger(playerStartHole) && playerStartHole >= 1 && playerStartHole <= 18 ? playerStartHole : (event.start_hole || 1);
-  sequence = buildSequence(effectiveStartHole, event.holes);
+  const entryStartHole = Number.isInteger(parseInt(entry.start_hole, 10)) ? parseInt(entry.start_hole, 10) : 1;
+  sequence = buildSequence(entryStartHole, event.holes);
 
   // Determine current hole index (first without a score)
   currentIdx = sequence.findIndex(h => !scores[h]);
