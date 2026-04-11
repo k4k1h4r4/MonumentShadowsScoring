@@ -336,14 +336,14 @@
 
 <header>
   <div class="header-inner">
-    <a class="logo-block" href="monument_course_integrated.html">
+    <a class="logo-block" href="theme_course_scoring.html">
       <span class="logo-name">Monument Shadows</span>
       <span class="logo-sub">Golf Club · Live Scoring</span>
     </a>
     <nav>
-      <a href="monument_course_integrated.html">The Course</a>
-      <a href="monument_scoring_hub.html">Scoring</a>
-      <a href="monument_leaderboard.html">Leaderboard</a>
+      <a href="theme_course_scoring.html">The Course</a>
+      <a href="theme_scoring_hub.html">Scoring</a>
+      <a href="theme_leaderboard.html">Leaderboard</a>
     </nav>
   </div>
 </header>
@@ -411,7 +411,7 @@
       <option value="18">Hole 18 — Reckoning</option>
     </select>
 
-    <button class="btn btn-gold" onclick="startEventCreate()">Create Event</button>
+    <button class="btn btn-gold" id="createEventBtn" type="button">Create Event</button>
     <div class="msg" id="createMsg"></div>
 
     <div class="event-code-display" id="codeDisplay">
@@ -500,7 +500,7 @@
           const [event] = await res.json();
           document.getElementById('codeValue').textContent = event.code;
           document.getElementById('codeName').textContent = event.name;
-          document.getElementById('codeLeaderboardBtn').href = `monument_leaderboard.html?code=${event.code}`;
+          document.getElementById('codeLeaderboardBtn').href = `theme_leaderboard.html?code=${event.code}`;
           document.getElementById('codeDisplay').classList.add('show');
           showMsg('createMsg', 'Event created! Share the code with your group.', 'success');
           btn.textContent = 'Create Another';
@@ -525,6 +525,8 @@
     btn.disabled = false;
     btn.textContent = 'Create Event';
   }
+
+  document.getElementById('createEventBtn').addEventListener('click', window.handleCreateEvent);
 
   window.joinEvent = async function joinEvent() {
     const code = document.getElementById('joinCode').value.trim().toUpperCase();
@@ -574,7 +576,7 @@
       }
 
       const [entry] = await entryRes.json();
-      window.location.href = `monument_scorecard.html?entry=${entry.id}&event=${event.id}`;
+      window.location.href = `theme_scorecard.html?entry=${entry.id}&event=${event.id}`;
     } catch (err) {
       console.error('Join event error:', err);
       showMsg('joinMsg', 'Could not reach the event service. Verify the Supabase settings and network connection.', 'error');
