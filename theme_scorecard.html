@@ -534,9 +534,8 @@ async function init() {
   // Map scores by hole number
   scData.forEach(s => { scores[s.hole] = s.strokes; });
 
-  // Build sequence
-  const entryStartHole = Number.isInteger(parseInt(entry.start_hole, 10)) ? parseInt(entry.start_hole, 10) : 1;
-  sequence = buildSequence(entryStartHole, event.holes);
+  // Build sequence from the entry's selected starting hole
+  sequence = buildSequence(entry.start_hole || 1, event.holes);
 
   // Determine current hole index (first without a score)
   currentIdx = sequence.findIndex(h => !scores[h]);
@@ -623,7 +622,7 @@ function renderScoringArea(idx) {
 
   main.innerHTML = `
     <div class="hole-header">
-      <div class="hole-number-display">Hole ${holeNum} · ${event.tee} Tee · Started on Hole ${sequence[0]}</div>
+      <div class="hole-number-display">Hole ${holeNum} · ${event.tee} Tee</div>
       <div class="hole-name-display">${hole.name}</div>
       <div class="hole-meta">
         <div class="hole-meta-item">
@@ -745,7 +744,7 @@ function renderComplete(main) {
       <h2>${entry.name}</h2>
       <span class="final-score">${total}</span>
       <div class="final-par">${parToString(diff)} · Par ${parTotal}</div>
-      <a href="theme_leaderboard.html?code=${event.code}">View Leaderboard →</a>
+      <a href="leaderboard.html?code=${event.code}">View Leaderboard →</a>
     </div>
 
     <div style="margin-top:20px;">
