@@ -336,12 +336,12 @@
 
 <header>
   <div class="header-inner">
-    <a class="logo-block" href="theme_course_scoring.html">
+    <a class="logo-block" href="index.html">
       <span class="logo-name">Monument Shadows</span>
       <span class="logo-sub">Golf Club · Live Scoring</span>
     </a>
     <nav>
-      <a href="theme_course_scoring.html">The Course</a>
+      <a href="index.html">The Course</a>
       <a href="theme_scoring_hub.html">Scoring</a>
       <a href="theme_leaderboard.html">Leaderboard</a>
     </nav>
@@ -389,29 +389,8 @@
       </div>
     </div>
 
-    <label for="eventStart">Starting Hole</label>
-    <select id="eventStart">
-      <option value="1" selected>Hole 1 — Omen</option>
-      <option value="2">Hole 2 — Hemlock</option>
-      <option value="3">Hole 3 — Badlands</option>
-      <option value="4">Hole 4 — Sentinel</option>
-      <option value="5">Hole 5 — Strangle</option>
-      <option value="6">Hole 6 — Rhumba</option>
-      <option value="7">Hole 7 — Flicker</option>
-      <option value="8">Hole 8 — Balderdash</option>
-      <option value="9">Hole 9 — Darkfall</option>
-      <option value="10">Hole 10 — Harbinger</option>
-      <option value="11">Hole 11 — Exile</option>
-      <option value="12">Hole 12 — Shroud</option>
-      <option value="13">Hole 13 — Lure</option>
-      <option value="14">Hole 14 — Obscura</option>
-      <option value="15">Hole 15 — Mercy</option>
-      <option value="16">Hole 16 — Dirge</option>
-      <option value="17">Hole 17 — Rotwind</option>
-      <option value="18">Hole 18 — Reckoning</option>
-    </select>
 
-    <button class="btn btn-gold" id="createEventBtn" type="button">Create Event</button>
+    <button class="btn btn-gold" onclick="startEventCreate()">Create Event</button>
     <div class="msg" id="createMsg"></div>
 
     <div class="event-code-display" id="codeDisplay">
@@ -434,6 +413,28 @@
 
     <label for="entryName">Your Name / Team Name</label>
     <input type="text" id="entryName" placeholder="e.g. Smith & Jones" maxlength="40">
+
+    <label for="joinStart">Starting Hole</label>
+    <select id="joinStart">
+      <option value="1" selected>Hole 1 — Omen</option>
+      <option value="2">Hole 2 — Hemlock</option>
+      <option value="3">Hole 3 — Badlands</option>
+      <option value="4">Hole 4 — Sentinel</option>
+      <option value="5">Hole 5 — Strangle</option>
+      <option value="6">Hole 6 — Rhumba</option>
+      <option value="7">Hole 7 — Flicker</option>
+      <option value="8">Hole 8 — Balderdash</option>
+      <option value="9">Hole 9 — Darkfall</option>
+      <option value="10">Hole 10 — Harbinger</option>
+      <option value="11">Hole 11 — Exile</option>
+      <option value="12">Hole 12 — Shroud</option>
+      <option value="13">Hole 13 — Lure</option>
+      <option value="14">Hole 14 — Obscura</option>
+      <option value="15">Hole 15 — Mercy</option>
+      <option value="16">Hole 16 — Dirge</option>
+      <option value="17">Hole 17 — Rotwind</option>
+      <option value="18">Hole 18 — Reckoning</option>
+    </select>
 
     <button class="btn" onclick="joinEvent()">Join &amp; Start Scoring</button>
     <div class="msg" id="joinMsg"></div>
@@ -479,8 +480,7 @@
     const date = document.getElementById('eventDate').value;
     const tee  = document.getElementById('eventTee').value;
     const holes = parseInt(document.getElementById('eventHoles').value);
-    const start_hole = parseInt(document.getElementById('eventStart').value);
-
+    
     if (!name) return showMsg('createMsg', 'Please enter an event name.', 'error');
     if (!date)  return showMsg('createMsg', 'Please select a date.', 'error');
 
@@ -493,7 +493,7 @@
         const code = generateCode();
         const res = await api('events', {
           method: 'POST',
-          body: JSON.stringify({ code, name, date, tee, holes, start_hole })
+          body: JSON.stringify({ code, name, date, tee, holes })
         });
 
         if (res.ok) {
@@ -525,8 +525,6 @@
     btn.disabled = false;
     btn.textContent = 'Create Event';
   }
-
-  document.getElementById('createEventBtn').addEventListener('click', window.handleCreateEvent);
 
   window.joinEvent = async function joinEvent() {
     const code = document.getElementById('joinCode').value.trim().toUpperCase();
@@ -576,7 +574,8 @@
       }
 
       const [entry] = await entryRes.json();
-      window.location.href = `theme_scorecard.html?entry=${entry.id}&event=${event.id}`;
+      const startHole = parseInt(document.getElementById('joinStart').value, 10);
+      window.location.href = `theme_scorecard.html?entry=${entry.id}&event=${event.id}&startHole=${startHole}`;
     } catch (err) {
       console.error('Join event error:', err);
       showMsg('joinMsg', 'Could not reach the event service. Verify the Supabase settings and network connection.', 'error');
