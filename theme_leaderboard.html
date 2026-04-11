@@ -358,6 +358,9 @@
     color: var(--text-muted);
   }
 
+  .event-select-btn { color: var(--white); }
+  body[data-theme="shadows"] .event-select-btn { color: var(--white); }
+
   footer {
     background: var(--charcoal);
     color: rgba(255,255,255,0.4);
@@ -392,9 +395,8 @@
 </div>
 
 <div class="lookup-bar">
-  <div class="lookup-inner" style="justify-content:space-between;gap:16px;flex-wrap:wrap;">
-    <div class="lookup-event-name" id="lookupEventName" style="font-size:22px;color:var(--green-deep);font-style:normal;">Recent Events</div>
-    <button onclick="loadRecentEvents()">Refresh Events</button>
+  <div class="lookup-inner">
+    <div class="lookup-event-name" id="lookupEventName">Recent events</div>
   </div>
 </div>
 
@@ -403,7 +405,6 @@
   <div class="event-title" id="eventTitle">—</div>
   <div class="event-meta">
     <div class="event-meta-item">Date: <strong id="metaDate">—</strong></div>
-    <div class="event-meta-item">Tee: <strong id="metaTee">—</strong></div>
     <div class="event-meta-item">Format: <strong id="metaHoles">—</strong></div>
     <div class="event-meta-item">Start: <strong id="metaStart">—</strong></div>
   </div>
@@ -437,7 +438,7 @@ const HOLES = [
   { num:15, name:"Mercy",      par:4, hdcp:16 },
   { num:16, name:"Dirge",      par:5, hdcp:4  },
   { num:17, name:"Rotwind",    par:3, hdcp:12 },
-  { num:18, name:"Reckoning",  par:4, hdcp:10 },
+  { num:18, name:"Reckoning",  par:4, hdcp:10 }
 ];
 
 function api(path) {
@@ -454,7 +455,8 @@ function buildSequence(startHole, totalHoles) {
     return Array.from({length: 18}, (_, i) => ((startHole - 1 + i) % 18) + 1);
   }
   const isFront = startHole <= 9;
-  const low = isFront ? 1 : 10, high = isFront ? 9 : 18;
+  const low = isFront ? 1 : 10;
+  const high = isFront ? 9 : 18;
   const range = high - low + 1;
   return Array.from({length: 9}, (_, i) => low + ((startHole - low + i) % range));
 }
@@ -464,31 +466,194 @@ function parToString(diff) {
   return diff > 0 ? `+${diff}` : `${diff}`;
 }
 
+function formatLocalDate(dateStr, options = { month:'short', day:'numeric', year:'numeric' }) {
+  if (!dateStr) return '—';
+  return new Date(`${dateStr}T12:00:00`).toLocaleDateString('en-US', options);
+}
+
 let currentEvent = null;
 let refreshInterval = null;
 let refreshCountdown = 30;
 let countdownInterval = null;
 
-const params = new URLSearchParams(location.search);
-const urlCode = params.get('code');
+async function loadRecentEvents() {
+  const lbWrap = document.getElementById('lbWrap');
+  lbWrap.innerHTML = '<div class="loading-lb">Loading recent events...</div>';
+  document.getElementById('eventHeader').classList.remove('show');
+  document.getElementById('lookupEventName').textContent = 'Recent events';
 
-function stopAutoRefresh() {
-  if (refreshInterval) clearInterval(refreshInterval);
-  if (countdownInterval) clearInterval(countdownInterval);
-  refreshInterval = null;
-  countdownInterval = null;
-  refreshCountdown = 30;
-  const timer = document.getElementById('refreshTimer');
-  if (timer) timer.textContent = 'Refreshes in 30s';
+  try {
+    const res = await api('events?select=*&order=date.desc&limit=10');
+    const events = await res.json();
+
+    if (!events.length) {
+      lbWrap.innerHTML = '<div class="lb-empty">No recent events found.</div>';
+      return;
+    }
+
+    const rows = events.map(event => `
+      <tr>
+        <td><div class="lb-name">${event.name || 'Untitled Event'}</div><div class="lb-thru">Code ${event.code || '—'}</div></td>
+        <td class="right"><div class="lb-total">${formatLocalDate(event.date)}</div></td>
+        <td class="right"><div class="lb-total">${event.holes || '—'} Holes</div></td>
+        <td class="right"><button class="btn event-select-btn" style="width:auto;margin-top:0;padding:10px 16px;" onclick="selectEventByCode('${event.code || ''}')">View</button></td>
+      </tr>
+    `).join('');
+
+    lbWrap.innerHTML = `
+      <table class="lb">
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th class="right" style="width:140px">Date</th>
+            <th class="right" style="width:120px">Format</th>
+            <th class="right" style="width:100px">Open</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  } catch (err) {
+    console.error('Recent events error:', err);
+    lbWrap.innerHTML = '<div class="lb-empty">Could not load recent events.</div>';
+  }
 }
 
-function resetCountdown() {
-  refreshCountdown = 30;
-  document.getElementById('refreshTimer').textContent = 'Refreshes in 30s';
+function selectEventByCode(code) {
+  if (!code) return;
+  history.replaceState({}, '', `?code=${code}`);
+  loadLeaderboardByCode(code);
+}
+
+async function loadLeaderboardByCode(codeArg) {
+  const code = (codeArg || '').trim().toUpperCase();
+  if (code.length !== 3) return;
+
+  const evRes = await api(`events?code=eq.${code}&select=*`);
+  const events = await evRes.json();
+  if (!events.length) {
+    document.getElementById('lookupEventName').textContent = 'Event not found.';
+    document.getElementById('eventHeader').classList.remove('show');
+    document.getElementById('lbWrap').innerHTML = '<div class="lb-empty">No event found for that code.</div>';
+    return;
+  }
+
+  currentEvent = events[0];
+  document.getElementById('eventHeader').classList.add('show');
+  document.getElementById('eventTitle').textContent = currentEvent.name;
+  document.getElementById('metaDate').textContent = formatLocalDate(currentEvent.date, { weekday:'short', month:'long', day:'numeric' });
+  document.getElementById('metaHoles').textContent = `${currentEvent.holes} Holes · Stroke Play`;
+  document.getElementById('metaStart').textContent = 'Player-selected';
+  document.getElementById('lookupEventName').textContent = `${currentEvent.name} · Code ${currentEvent.code}`;
+
+  await refreshData();
+  startAutoRefresh();
+}
+
+async function refreshData() {
+  if (!currentEvent) return;
+  const lbWrap = document.getElementById('lbWrap');
+
+  const [enRes, scRes] = await Promise.all([
+    api(`entries?event_id=eq.${currentEvent.id}&select=*&order=created_at.asc`),
+    api(`scores?event_id=eq.${currentEvent.id}&select=*`)
+  ]);
+  const entries = await enRes.json();
+  const allScores = await scRes.json();
+
+  if (!entries.length) {
+    lbWrap.innerHTML = '<div class="lb-empty">No entries yet. Share the event code to get started.</div>';
+    return;
+  }
+
+  const scoreMap = {};
+  allScores.forEach(s => {
+    if (!scoreMap[s.entry_id]) scoreMap[s.entry_id] = {};
+    scoreMap[s.entry_id][s.hole] = s.strokes;
+  });
+
+  const standings = entries.map(entry => {
+    const seq = buildSequence(entry.start_hole || 1, currentEvent.holes);
+    const entryScores = scoreMap[entry.id] || {};
+    let totalStrokes = 0, totalPar = 0, holesPlayed = 0;
+
+    seq.forEach(h => {
+      const sc = entryScores[h];
+      if (sc !== undefined) {
+        totalStrokes += sc;
+        totalPar += HOLES[h - 1].par;
+        holesPlayed++;
+      }
+    });
+
+    const diff = totalStrokes - totalPar;
+    const complete = holesPlayed === seq.length;
+    return { entry, seq, entryScores, totalStrokes, totalPar, diff, holesPlayed, complete };
+  });
+
+  standings.sort((a, b) => {
+    if (a.complete !== b.complete) return a.complete ? -1 : 1;
+    if (a.diff !== b.diff) return a.diff - b.diff;
+    return b.holesPlayed - a.holesPlayed;
+  });
+
+  let pos = 1;
+  standings.forEach((s, i) => {
+    if (i > 0) {
+      const prev = standings[i - 1];
+      if (s.diff !== prev.diff || s.complete !== prev.complete || s.holesPlayed !== prev.holesPlayed) pos = i + 1;
+    }
+    s.position = pos;
+  });
+
+  const rows = standings.map(s => {
+    const isLeader = s.position === 1;
+    const diffStr = s.holesPlayed === 0 ? '—' : parToString(s.diff);
+    const diffCls = s.diff < 0 ? 'under' : s.diff > 0 ? 'over' : 'even';
+    const thruText = s.holesPlayed === 0 ? 'Not started' : (s.complete ? 'F' : `Thru ${s.holesPlayed}`);
+    const thruCls = s.complete ? 'complete' : '';
+
+    const holeCells = s.seq.map(h => {
+      const sc = s.entryScores[h];
+      if (sc === undefined) return `<div class="lb-hole-cell empty">·</div>`;
+      const diff = sc - HOLES[h - 1].par;
+      const cls = diff < 0 ? 'under' : diff > 0 ? 'over' : 'even';
+      return `<div class="lb-hole-cell ${cls}" title="Hole ${h}: ${sc}">${sc}</div>`;
+    }).join('');
+
+    return `
+      <tr class="${isLeader ? 'leader' : ''}">
+        <td><span class="lb-pos ${isLeader ? 'first' : ''}">${s.position}</span></td>
+        <td><div class="lb-name ${isLeader ? 'leader-name' : ''}">${s.entry.name}</div><div class="lb-thru ${thruCls}">${thruText} · Start ${s.entry.start_hole || 1}</div></td>
+        <td class="right"><div class="lb-score ${s.holesPlayed > 0 ? diffCls : ''}">${diffStr}</div></td>
+        <td class="right"><div class="lb-total">${s.totalStrokes || '—'}</div></td>
+        <td class="holes-col"><div class="lb-holes">${holeCells}</div></td>
+      </tr>
+    `;
+  }).join('');
+
+  lbWrap.innerHTML = `
+    <table class="lb">
+      <thead>
+        <tr>
+          <th style="width:48px">#</th>
+          <th>Player / Team</th>
+          <th class="right" style="width:80px">Score</th>
+          <th class="right" style="width:60px">Total</th>
+          <th class="holes-col" style="width:300px">Holes</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+
+  resetCountdown();
 }
 
 function startAutoRefresh() {
-  stopAutoRefresh();
+  if (refreshInterval) clearInterval(refreshInterval);
+  if (countdownInterval) clearInterval(countdownInterval);
+  refreshCountdown = 30;
   refreshInterval = setInterval(refreshData, 30000);
   countdownInterval = setInterval(() => {
     refreshCountdown--;
@@ -497,210 +662,10 @@ function startAutoRefresh() {
   }, 1000);
 }
 
-async function loadRecentEvents() {
-  stopAutoRefresh();
-  currentEvent = null;
-  document.getElementById('eventHeader').classList.remove('show');
-  document.getElementById('lookupEventName').textContent = 'Recent Events';
-  history.replaceState({}, '', 'theme_leaderboard.html');
-
-  const lbWrap = document.getElementById('lbWrap');
-  lbWrap.innerHTML = '<div class="loading-lb">Loading recent events...</div>';
-
-  try {
-    const res = await api('events?select=*&order=date.desc&limit=10');
-    const events = await res.json();
-
-    if (!Array.isArray(events) || !events.length) {
-      lbWrap.innerHTML = '<div class="lb-empty">No recent events found.</div>';
-      return;
-    }
-
-    const rows = events.map((event, idx) => {
-      const eventDate = event.date ? new Date(event.date).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '—';
-      return `
-        <tr>
-          <td>${idx + 1}</td>
-          <td>
-            <div class="lb-name">${event.name || 'Untitled Event'}</div>
-            <div class="lb-thru">Code ${event.code || '—'}</div>
-          </td>
-          <td class="right"><div class="lb-total">${eventDate}</div></td>
-          <td class="right"><div class="lb-total">${event.tee || '—'}</div></td>
-          <td class="right"><button class="btn" style="width:auto;margin-top:0;padding:10px 16px;" onclick="selectEventByCode('${event.code || ''}')">View</button></td>
-        </tr>
-      `;
-    }).join('');
-
-    lbWrap.innerHTML = `
-      <table class="lb">
-        <thead>
-          <tr>
-            <th style="width:48px">#</th>
-            <th>Event</th>
-            <th class="right" style="width:140px">Date</th>
-            <th class="right" style="width:80px">Tee</th>
-            <th class="right" style="width:110px">Leaderboard</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `;
-  } catch (err) {
-    console.error(err);
-    lbWrap.innerHTML = '<div class="lb-empty">Could not load recent events.</div>';
-  }
+function resetCountdown() {
+  refreshCountdown = 30;
+  document.getElementById('refreshTimer').textContent = 'Refreshes in 30s';
 }
-
-async function selectEventByCode(code) {
-  if (!code) return;
-  try {
-    const evRes = await api(`events?code=eq.${code}&select=*`);
-    const events = await evRes.json();
-    if (!Array.isArray(events) || !events.length) {
-      document.getElementById('lookupEventName').textContent = 'Event not found.';
-      document.getElementById('eventHeader').classList.remove('show');
-      document.getElementById('lbWrap').innerHTML = '<div class="lb-empty">No event found for that selection.</div>';
-      return;
-    }
-
-    currentEvent = events[0];
-    history.replaceState({}, '', `?code=${code}`);
-    document.getElementById('eventHeader').classList.add('show');
-    document.getElementById('eventTitle').textContent = currentEvent.name;
-    document.getElementById('metaDate').textContent = currentEvent.date ? new Date(currentEvent.date).toLocaleDateString('en-US', { weekday:'short', month:'long', day:'numeric' }) : '—';
-    document.getElementById('metaTee').textContent = currentEvent.tee || '—';
-    document.getElementById('metaHoles').textContent = `${currentEvent.holes} Holes · Stroke Play`;
-    document.getElementById('metaStart').textContent = 'Player-selected';
-    document.getElementById('lookupEventName').textContent = currentEvent.name;
-
-    await refreshData();
-    startAutoRefresh();
-  } catch (err) {
-    console.error(err);
-    document.getElementById('lbWrap').innerHTML = '<div class="lb-empty">Could not load that event.</div>';
-  }
-}
-
-async function refreshData() {
-  if (!currentEvent) return;
-  const lbWrap = document.getElementById('lbWrap');
-  lbWrap.innerHTML = '<div class="loading-lb">Refreshing leaderboard...</div>';
-
-  try {
-    const [enRes, scRes] = await Promise.all([
-      api(`entries?event_id=eq.${currentEvent.id}&select=*&order=created_at.asc`),
-      api(`scores?event_id=eq.${currentEvent.id}&select=*`)
-    ]);
-    const entries = await enRes.json();
-    const allScores = await scRes.json();
-
-    if (!Array.isArray(entries) || !entries.length) {
-      lbWrap.innerHTML = '<div class="lb-empty">No entries yet for this event.</div>';
-      resetCountdown();
-      return;
-    }
-
-    const scoreMap = {};
-    (Array.isArray(allScores) ? allScores : []).forEach(s => {
-      if (!scoreMap[s.entry_id]) scoreMap[s.entry_id] = {};
-      scoreMap[s.entry_id][s.hole] = s.strokes;
-    });
-
-    const standings = entries.map(entry => {
-      const entryScores = scoreMap[entry.id] || {};
-      const parsedStart = parseInt(entry.start_hole, 10);
-      const entryStartHole = Number.isInteger(parsedStart) ? parsedStart : 1;
-      const seq = buildSequence(entryStartHole, currentEvent.holes);
-      let totalStrokes = 0, totalPar = 0, holesPlayed = 0;
-
-      seq.forEach(h => {
-        const sc = entryScores[h];
-        if (sc !== undefined && sc !== null) {
-          totalStrokes += sc;
-          totalPar += HOLES[h - 1].par;
-          holesPlayed++;
-        }
-      });
-
-      const diff = totalStrokes - totalPar;
-      const complete = holesPlayed === seq.length;
-      return { entry, entryScores, totalStrokes, totalPar, diff, holesPlayed, complete, seq };
-    });
-
-    standings.sort((a, b) => {
-      if (a.complete !== b.complete) return a.complete ? -1 : 1;
-      if (a.diff !== b.diff) return a.diff - b.diff;
-      return b.holesPlayed - a.holesPlayed;
-    });
-
-    let pos = 1;
-    standings.forEach((s, i) => {
-      if (i > 0) {
-        const prev = standings[i - 1];
-        if (s.diff !== prev.diff || s.complete !== prev.complete || s.holesPlayed !== prev.holesPlayed) pos = i + 1;
-      }
-      s.position = pos;
-    });
-
-    const rows = standings.map(s => {
-      const isLeader = s.position === 1;
-      const diffStr = s.holesPlayed === 0 ? '—' : parToString(s.diff);
-      const diffCls = s.diff < 0 ? 'under' : s.diff > 0 ? 'over' : 'even';
-      const thruText = s.holesPlayed === 0 ? 'Not started' : (s.complete ? 'F' : `Thru ${s.holesPlayed}`);
-      const thruCls = s.complete ? 'complete' : '';
-      const holeCells = s.seq.map(h => {
-        const sc = s.entryScores[h];
-        if (sc === undefined || sc === null) return `<div class="lb-hole-cell empty">·</div>`;
-        const par = HOLES[h - 1].par;
-        const diff = sc - par;
-        const cls = diff < 0 ? 'under' : diff > 0 ? 'over' : 'even';
-        return `<div class="lb-hole-cell ${cls}" title="Hole ${h}: ${sc}">${sc}</div>`;
-      }).join('');
-
-      return `
-        <tr class="${isLeader ? 'leader' : ''}">
-          <td><span class="lb-pos ${isLeader ? 'first' : ''}">${s.position}</span></td>
-          <td>
-            <div class="lb-name ${isLeader ? 'leader-name' : ''}">${s.entry.name}</div>
-            <div class="lb-thru ${thruCls}">${thruText} · Start ${s.entry.start_hole || 1}</div>
-          </td>
-          <td class="right"><div class="lb-score ${s.holesPlayed > 0 ? diffCls : ''}">${diffStr}</div></td>
-          <td class="right"><div class="lb-total">${s.totalStrokes || '—'}</div></td>
-          <td class="holes-col"><div class="lb-holes">${holeCells}</div></td>
-        </tr>
-      `;
-    }).join('');
-
-    lbWrap.innerHTML = `
-      <table class="lb">
-        <thead>
-          <tr>
-            <th style="width:48px">#</th>
-            <th>Player / Team</th>
-            <th class="right" style="width:80px">Score</th>
-            <th class="right" style="width:60px">Total</th>
-            <th class="holes-col" style="width:300px">Holes</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `;
-
-    resetCountdown();
-  } catch (err) {
-    console.error(err);
-    lbWrap.innerHTML = '<div class="lb-empty">Could not load leaderboard scores.</div>';
-  }
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-  if (urlCode) {
-    selectEventByCode(urlCode.toUpperCase());
-  } else {
-    loadRecentEvents();
-  }
-});
 
 const themeButtons = document.querySelectorAll('[data-theme-option]');
 const storedTheme = localStorage.getItem('monument-theme');
@@ -717,6 +682,15 @@ function applyTheme(theme) {
 themeButtons.forEach(button => button.addEventListener('click', () => applyTheme(button.dataset.themeOption)));
 applyTheme(initialTheme);
 
+const params = new URLSearchParams(location.search);
+const urlCode = params.get('code');
+window.addEventListener('DOMContentLoaded', () => {
+  if (urlCode) {
+    loadLeaderboardByCode(urlCode.toUpperCase());
+  } else {
+    loadRecentEvents();
+  }
+});
 </script>
 </body>
 </html>
