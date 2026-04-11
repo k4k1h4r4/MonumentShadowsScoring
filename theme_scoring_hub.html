@@ -336,12 +336,12 @@
 
 <header>
   <div class="header-inner">
-    <a class="logo-block" href="index.html">
+    <a class="logo-block" href="theme_course_scoring.html">
       <span class="logo-name">Monument Shadows</span>
       <span class="logo-sub">Golf Club · Live Scoring</span>
     </a>
     <nav>
-      <a href="index.html">The Course</a>
+      <a href="theme_course_scoring.html">The Course</a>
       <a href="theme_scoring_hub.html">Scoring</a>
       <a href="theme_leaderboard.html">Leaderboard</a>
     </nav>
@@ -389,8 +389,7 @@
       </div>
     </div>
 
-
-    <button class="btn btn-gold" onclick="handleCreateEvent()">Create Event</button>
+    <button class="btn btn-gold" id="createEventBtn" type="button">Create Event</button>
     <div class="msg" id="createMsg"></div>
 
     <div class="event-code-display" id="codeDisplay">
@@ -472,15 +471,22 @@
     el.className = `msg ${type} show`;
   }
 
-  // Set default date to today
-  document.getElementById('eventDate').valueAsDate = new Date();
+  function getLocalDate() {
+    const now = new Date();
+    const offset = now.getTimezoneOffset();
+    const local = new Date(now.getTime() - offset * 60000);
+    return local.toISOString().split('T')[0];
+  }
+
+  // Set default date to today in local time
+  document.getElementById('eventDate').value = getLocalDate();
 
   window.handleCreateEvent = async function startEventCreate() {
     const name = document.getElementById('eventName').value.trim();
     const date = document.getElementById('eventDate').value;
     const tee  = document.getElementById('eventTee').value;
     const holes = parseInt(document.getElementById('eventHoles').value);
-    
+
     if (!name) return showMsg('createMsg', 'Please enter an event name.', 'error');
     if (!date)  return showMsg('createMsg', 'Please select a date.', 'error');
 
@@ -526,9 +532,12 @@
     btn.textContent = 'Create Event';
   }
 
+  document.getElementById('createEventBtn').addEventListener('click', window.handleCreateEvent);
+
   window.joinEvent = async function joinEvent() {
     const code = document.getElementById('joinCode').value.trim().toUpperCase();
     const name = document.getElementById('entryName').value.trim();
+    const start_hole = parseInt(document.getElementById('joinStart').value);
 
     if (code.length !== 3) return showMsg('joinMsg', 'Please enter a 3-character event code.', 'error');
     if (!name) return showMsg('joinMsg', 'Please enter your name or team name.', 'error');
@@ -558,7 +567,7 @@
 
       const entryRes = await api('entries', {
         method: 'POST',
-        body: JSON.stringify({ event_id: event.id, name, start_hole: parseInt(document.getElementById('joinStart').value, 10) })
+        body: JSON.stringify({ event_id: event.id, name, start_hole })
       });
 
       if (!entryRes.ok) {
