@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monument Shadows — Golf Scoring</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green-deep:  #1a3d2b;
+    --green-mid:   #2d6040;
+    --green-light: #3d7a52;
+    --green-pale:  #e8f0eb;
+    --gold:        #c9a84c;
+    --gold-light:  #e8c97a;
+    --white:       #fafaf8;
+    --cream:       #f2ede4;
+    --charcoal:    #1c1c1c;
+    --text-body:   #2c2c2c;
+    --text-muted:  #6b6b5e;
+    --border:      #c4b896;
+    --error:       #c0392b;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'EB Garamond', Georgia, serif;
+    background: var(--cream);
+    color: var(--text-body);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .top-bar {
+    background: var(--green-deep);
+    color: var(--gold-light);
+    text-align: center;
+    padding: 8px 20px;
+    font-family: 'Lato', sans-serif;
+    font-size: 11px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+  }
+  header {
+    background: var(--green-deep);
+    border-bottom: 3px solid var(--gold);
+    box-shadow: 0 2px 16px rgba(0,0,0,0.35);
+  }
+  .header-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    height: 72px;
+  }
+
+  .header-controls { display:flex; align-items:center; gap:18px; }
+  .theme-switcher { display:inline-flex; align-items:center; gap:4px; padding:4px; border:1px solid rgba(201,168,76,0.35); background: rgba(255,255,255,0.08); border-radius:999px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+  .theme-button { appearance:none; border:none; background:transparent; color:var(--text-muted); font-family:'Lato',sans-serif; font-size:10px; letter-spacing:2px; text-transform:uppercase; padding:9px 14px; border-radius:999px; cursor:pointer; transition: background 0.25s ease, color 0.25s ease, box-shadow 0.25s ease; }
+  .theme-button.active { background: linear-gradient(180deg, rgba(201,168,76,0.28) 0%, rgba(201,168,76,0.12) 100%); color: var(--white); box-shadow: inset 0 0 0 1px rgba(201,168,76,0.24), 0 6px 14px rgba(0,0,0,0.12); }
+  body[data-theme="shadows"] { --green-deep:#0d1117; --green-mid:#232c39; --green-light:#7f8ca3; --green-pale:#171c23; --gold:#b58a56; --gold-light:#e8d6bb; --white:#f4efe6; --cream:#0f141b; --charcoal:#05070a; --text-body:#ece1d4; --text-muted:#a9b0bb; --border:#3a4657; --birdie:#7fb4ff; --eagle:#9ac7ff; --bogey:#d98274; --double:#a04e49; --error:#d98274; }
+  body[data-theme="shadows"] { background: linear-gradient(180deg, #0b0f14 0%, #10151c 45%, #121821 100%); color: var(--text-body); }
+  body[data-theme="shadows"] header, body[data-theme="shadows"] .hole-nav, body[data-theme="shadows"] .running-total, body[data-theme="shadows"] .live-bar, body[data-theme="shadows"] .top-bar { background: #0d1117; border-color: var(--gold); }
+  body[data-theme="shadows"] .card, body[data-theme="shadows"] .score-input-block, body[data-theme="shadows"] .lookup-bar, body[data-theme="shadows"] .event-code-display, body[data-theme="shadows"] .lookup-inner input, body[data-theme="shadows"] .join-code-input, body[data-theme="shadows"] input, body[data-theme="shadows"] select, body[data-theme="shadows"] .mini-scorecard table, body[data-theme="shadows"] table.lb tbody tr, body[data-theme="shadows"] .event-header, body[data-theme="shadows"] .lb-empty { background: rgba(19,25,34,0.96); color: var(--text-body); border-color: var(--border); }
+  body[data-theme="shadows"] nav a { color: rgba(232,224,210,0.72); }
+  body[data-theme="shadows"] nav a:hover, body[data-theme="shadows"] nav a.active { color: var(--white); border-bottom-color: var(--gold); }
+  body[data-theme="shadows"] .logo-name, body[data-theme="shadows"] .card h2, body[data-theme="shadows"] .hole-name-display, body[data-theme="shadows"] .event-title, body[data-theme="shadows"] .lb-name, body[data-theme="shadows"] .hero-title { color: var(--white); }
+  body[data-theme="shadows"] .card p, body[data-theme="shadows"] .hole-meta-lbl, body[data-theme="shadows"] .rt-label, body[data-theme="shadows"] .rt-par, body[data-theme="shadows"] .lookup-event-name, body[data-theme="shadows"] .lb-thru, body[data-theme="shadows"] .event-meta-item, body[data-theme="shadows"] label, body[data-theme="shadows"] .msg, body[data-theme="shadows"] .lb-empty { color: var(--text-muted); }
+  body[data-theme="shadows"] .btn, body[data-theme="shadows"] .save-btn, body[data-theme="shadows"] .lookup-inner button { background: #171f2a; }
+  body[data-theme="shadows"] .btn-gold, body[data-theme="shadows"] .save-btn.editing, body[data-theme="shadows"] .hole-pip.current { background: var(--gold); color: #0d1117; }
+  body[data-theme="shadows"] .score-btn { background: #171f2a; color: var(--white); border-color: var(--border); }
+  body[data-theme="shadows"] .score-btn:hover { background:#232c39; border-color:var(--gold); }
+  body[data-theme="shadows"] .hole-pip.future { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.25); }
+  body[data-theme="shadows"] .hole-pip.completed, body[data-theme="shadows"] .hole-pip.even { background:#232c39; border-color:#3c485c; }
+  body[data-theme="shadows"] .lb-hole-cell.even { background:#232c39; color:#d4dbe6; }
+  @media (max-width: 900px) { .header-controls { gap: 0; } .theme-switcher { margin-left:auto; } nav { display:none; } }
+
+  .logo-block { text-decoration: none; }
+  .logo-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: 1px;
+    display: block;
+    line-height: 1.1;
+  }
+  .logo-sub {
+    font-family: 'Lato', sans-serif;
+    font-size: 9px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--gold);
+    display: block;
+    margin-top: 2px;
+  }
+  nav a {
+    font-family: 'Lato', sans-serif;
+    font-size: 11px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--gold-light);
+    text-decoration: none;
+    margin-left: 32px;
+    transition: color 0.2s;
+  }
+  nav a:hover { color: var(--white); }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(160deg, #0d2417 0%, #1a3d2b 50%, #2d6040 100%);
+    padding: 72px 32px 80px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 80%, rgba(201,168,76,0.08) 0%, transparent 60%);
+  }
+  .hero-eyebrow {
+    font-family: 'Lato', sans-serif;
+    font-size: 10px;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 16px;
+  }
+  .hero-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(36px, 6vw, 64px);
+    font-weight: 400;
+    color: var(--white);
+    line-height: 1.1;
+    margin-bottom: 16px;
+  }
+  .hero-title em { font-style: italic; color: var(--gold-light); }
+  .hero-rule { width: 48px; height: 2px; background: var(--gold); margin: 20px auto; }
+  .hero-desc {
+    font-size: 19px;
+    color: rgba(255,255,255,0.65);
+    font-style: italic;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  /* CARDS */
+  .cards-wrap {
+    max-width: 800px;
+    margin: -40px auto 0;
+    padding: 0 24px 72px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    position: relative;
+    z-index: 10;
+  }
+  .card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    padding: 40px 32px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+  }
+  .card-eyebrow {
+    font-family: 'Lato', sans-serif;
+    font-size: 9px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 10px;
+  }
+  .card h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 400;
+    color: var(--green-deep);
+    margin-bottom: 8px;
+  }
+  .card p {
+    font-size: 16px;
+    color: var(--text-muted);
+    margin-bottom: 28px;
+    line-height: 1.6;
+  }
+  .card-rule { width: 32px; height: 2px; background: var(--gold); margin-bottom: 28px; }
+
+  /* FORM ELEMENTS */
+  label {
+    font-family: 'Lato', sans-serif;
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 6px;
+  }
+  input, select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    background: var(--cream);
+    font-family: 'EB Garamond', serif;
+    font-size: 17px;
+    color: var(--text-body);
+    margin-bottom: 18px;
+    outline: none;
+    transition: border-color 0.2s;
+    appearance: none;
+  }
+  input:focus, select:focus { border-color: var(--green-mid); }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b6b5e' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    background: var(--green-deep);
+    color: var(--white);
+    border: none;
+    font-family: 'Lato', sans-serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 8px;
+  }
+  .btn:hover { background: var(--green-mid); }
+  .btn:disabled { background: var(--text-muted); cursor: not-allowed; }
+  .btn-gold {
+    background: var(--gold);
+    color: var(--green-deep);
+  }
+  .btn-gold:hover { background: var(--gold-light); }
+
+  .msg {
+    font-family: 'Lato', sans-serif;
+    font-size: 12px;
+    letter-spacing: 1px;
+    padding: 10px 14px;
+    margin-top: 12px;
+    display: none;
+  }
+  .msg.error { background: #fdecea; color: var(--error); border-left: 3px solid var(--error); }
+  .msg.success { background: #eaf4ee; color: var(--green-mid); border-left: 3px solid var(--green-mid); }
+  .msg.show { display: block; }
+
+  /* CODE DISPLAY */
+  .event-code-display {
+    text-align: center;
+    padding: 24px;
+    background: var(--green-pale);
+    border: 1px solid var(--border);
+    margin-top: 20px;
+    display: none;
+  }
+  .event-code-display.show { display: block; }
+  .event-code-display .code {
+    font-family: 'Playfair Display', serif;
+    font-size: 56px;
+    font-weight: 700;
+    color: var(--green-deep);
+    letter-spacing: 12px;
+    display: block;
+    line-height: 1;
+    margin: 8px 0;
+  }
+  .event-code-display .code-label {
+    font-family: 'Lato', sans-serif;
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .event-code-display .code-name {
+    font-family: 'EB Garamond', serif;
+    font-size: 18px;
+    font-style: italic;
+    color: var(--text-muted);
+    margin-top: 6px;
+  }
+
+  /* JOIN CODE INPUT */
+  .join-code-input {
+    text-align: center;
+    font-family: 'Playfair Display', serif;
+    font-size: 40px;
+    font-weight: 700;
+    letter-spacing: 14px;
+    text-transform: uppercase;
+    color: var(--green-deep);
+    padding: 14px;
+    border: 2px solid var(--border);
+    background: var(--cream);
+    width: 100%;
+    outline: none;
+    margin-bottom: 18px;
+    transition: border-color 0.2s;
+  }
+  .join-code-input:focus { border-color: var(--green-mid); }
+
+  footer {
+    background: var(--charcoal);
+    color: rgba(255,255,255,0.4);
+    text-align: center;
+    padding: 28px 32px;
+    border-top: 3px solid var(--gold);
+    margin-top: auto;
+    font-family: 'Lato', sans-serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  @media (max-width: 600px) {
+    .cards-wrap { grid-template-columns: 1fr; margin-top: -20px; }
+    .field-row { grid-template-columns: 1fr; }
+    nav { display: none; }
+  }
+</style>
+</head>
+<body data-theme="augusta">
+
+<div class="top-bar">Gering, Nebraska &nbsp;·&nbsp; 2550 Club House Drive</div>
+
+<header>
+  <div class="header-inner">
+    <a class="logo-block" href="monument_course_integrated.html">
+      <span class="logo-name">Monument Shadows</span>
+      <span class="logo-sub">Golf Club · Live Scoring</span>
+    </a>
+    <nav>
+      <a href="monument_course_integrated.html">The Course</a>
+      <a href="monument_scoring_hub.html">Scoring</a>
+      <a href="monument_leaderboard.html">Leaderboard</a>
+    </nav>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="hero-eyebrow">Monument Shadows Events</div>
+  <h1 class="hero-title">Start the round.<em> Share the code.</em><br>Track every hole.</h1>
+  <div class="hero-rule"></div>
+  <p class="hero-desc">Use Monument Shadows as a live scoring hub for your group, from the opening tee shot to the final leaderboard refresh.</p>
+</div>
+
+<div class="cards-wrap">
+
+  <!-- CREATE EVENT -->
+  <div class="card">
+    <div class="card-eyebrow">Organizer</div>
+    <h2>Create Event</h2>
+    <p>Set up a new round and share the code with your group.</p>
+    <div class="card-rule"></div>
+
+    <label for="eventName">Event Name</label>
+    <input type="text" id="eventName" placeholder="Saturday Scramble" maxlength="60">
+
+    <label for="eventDate">Date</label>
+    <input type="date" id="eventDate">
+
+    <div class="field-row">
+      <div>
+        <label for="eventTee">Tee</label>
+        <select id="eventTee">
+          <option value="Gold">Gold</option>
+          <option value="Blue" selected>Blue</option>
+          <option value="White">White</option>
+          <option value="Red">Red</option>
+        </select>
+      </div>
+      <div>
+        <label for="eventHoles">Holes</label>
+        <select id="eventHoles">
+          <option value="18" selected>18 Holes</option>
+          <option value="9">9 Holes</option>
+        </select>
+      </div>
+    </div>
+
+    <label for="eventStart">Starting Hole</label>
+    <select id="eventStart">
+      <option value="1" selected>Hole 1 — Omen</option>
+      <option value="2">Hole 2 — Hemlock</option>
+      <option value="3">Hole 3 — Badlands</option>
+      <option value="4">Hole 4 — Sentinel</option>
+      <option value="5">Hole 5 — Strangle</option>
+      <option value="6">Hole 6 — Rhumba</option>
+      <option value="7">Hole 7 — Flicker</option>
+      <option value="8">Hole 8 — Balderdash</option>
+      <option value="9">Hole 9 — Darkfall</option>
+      <option value="10">Hole 10 — Harbinger</option>
+      <option value="11">Hole 11 — Exile</option>
+      <option value="12">Hole 12 — Shroud</option>
+      <option value="13">Hole 13 — Lure</option>
+      <option value="14">Hole 14 — Obscura</option>
+      <option value="15">Hole 15 — Mercy</option>
+      <option value="16">Hole 16 — Dirge</option>
+      <option value="17">Hole 17 — Rotwind</option>
+      <option value="18">Hole 18 — Reckoning</option>
+    </select>
+
+    <button class="btn btn-gold" onclick="startEventCreate()">Create Event</button>
+    <div class="msg" id="createMsg"></div>
+
+    <div class="event-code-display" id="codeDisplay">
+      <div class="code-label">Your Event Code</div>
+      <span class="code" id="codeValue">---</span>
+      <div class="code-name" id="codeName"></div>
+      <a class="btn" id="codeLeaderboardBtn" href="#" style="margin-top:16px;text-decoration:none;display:inline-block;width:auto;padding:10px 24px;">View Leaderboard</a>
+    </div>
+  </div>
+
+  <!-- JOIN EVENT -->
+  <div class="card">
+    <div class="card-eyebrow">Player / Team</div>
+    <h2>Join Event</h2>
+    <p>Enter the 3-character code from your organizer to join a round.</p>
+    <div class="card-rule"></div>
+
+    <label for="joinCode">Event Code</label>
+    <input type="text" class="join-code-input" id="joinCode" maxlength="3" placeholder="---" oninput="this.value=this.value.toUpperCase()">
+
+    <label for="entryName">Your Name / Team Name</label>
+    <input type="text" id="entryName" placeholder="e.g. Smith & Jones" maxlength="40">
+
+    <button class="btn" onclick="joinEvent()">Join &amp; Start Scoring</button>
+    <div class="msg" id="joinMsg"></div>
+  </div>
+
+</div>
+
+<footer>Monument Shadows Golf Club &nbsp;·&nbsp; Gering, NE 69341</footer>
+
+<script>
+  const SUPABASE_URL = 'https://znqnnaslskjewfxcswxw.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_0pVZp5JcAc9lSIClZD5eqQ_9Q33F7Uf';
+
+  function api(path, options = {}) {
+    return fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      ...options,
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation',
+        ...options.headers
+      }
+    });
+  }
+
+  function generateCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    return Array.from({length: 3}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  }
+
+  function showMsg(id, text, type) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = `msg ${type} show`;
+  }
+
+  // Set default date to today
+  document.getElementById('eventDate').valueAsDate = new Date();
+
+  window.handleCreateEvent = async function startEventCreate() {
+    const name = document.getElementById('eventName').value.trim();
+    const date = document.getElementById('eventDate').value;
+    const tee  = document.getElementById('eventTee').value;
+    const holes = parseInt(document.getElementById('eventHoles').value);
+    const start_hole = parseInt(document.getElementById('eventStart').value);
+
+    if (!name) return showMsg('createMsg', 'Please enter an event name.', 'error');
+    if (!date)  return showMsg('createMsg', 'Please select a date.', 'error');
+
+    const btn = document.querySelector('.btn-gold');
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+
+    try {
+      for (let i = 0; i < 5; i++) {
+        const code = generateCode();
+        const res = await api('events', {
+          method: 'POST',
+          body: JSON.stringify({ code, name, date, tee, holes, start_hole })
+        });
+
+        if (res.ok) {
+          const [event] = await res.json();
+          document.getElementById('codeValue').textContent = event.code;
+          document.getElementById('codeName').textContent = event.name;
+          document.getElementById('codeLeaderboardBtn').href = `monument_leaderboard.html?code=${event.code}`;
+          document.getElementById('codeDisplay').classList.add('show');
+          showMsg('createMsg', 'Event created! Share the code with your group.', 'success');
+          btn.textContent = 'Create Another';
+          btn.disabled = false;
+          btn.onclick = () => location.reload();
+          return;
+        }
+
+        let detail = '';
+        try {
+          detail = await res.text();
+        } catch (e) {}
+        console.error('Create event failed:', res.status, detail);
+      }
+
+      showMsg('createMsg', 'Could not create the event. Please check the database connection and table permissions, then try again.', 'error');
+    } catch (err) {
+      console.error('Create event error:', err);
+      showMsg('createMsg', 'Could not reach the event service. Verify the Supabase project URL, key, and network access.', 'error');
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Create Event';
+  }
+
+  window.joinEvent = async function joinEvent() {
+    const code = document.getElementById('joinCode').value.trim().toUpperCase();
+    const name = document.getElementById('entryName').value.trim();
+
+    if (code.length !== 3) return showMsg('joinMsg', 'Please enter a 3-character event code.', 'error');
+    if (!name) return showMsg('joinMsg', 'Please enter your name or team name.', 'error');
+
+    const btn = document.querySelectorAll('.btn')[1];
+    btn.disabled = true;
+    btn.textContent = 'Joining...';
+
+    try {
+      const evRes = await api(`events?code=eq.${code}&select=*`);
+      if (!evRes.ok) {
+        showMsg('joinMsg', 'Error connecting. Try again.', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Join & Start Scoring';
+        return;
+      }
+
+      const events = await evRes.json();
+      if (!events.length) {
+        showMsg('joinMsg', 'Event code not found. Check and try again.', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Join & Start Scoring';
+        return;
+      }
+
+      const event = events[0];
+
+      const entryRes = await api('entries', {
+        method: 'POST',
+        body: JSON.stringify({ event_id: event.id, name })
+      });
+
+      if (!entryRes.ok) {
+        let detail = '';
+        try {
+          detail = await entryRes.text();
+        } catch (e) {}
+        console.error('Join event failed:', entryRes.status, detail);
+        showMsg('joinMsg', 'Error joining event. Try again.', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Join & Start Scoring';
+        return;
+      }
+
+      const [entry] = await entryRes.json();
+      window.location.href = `monument_scorecard.html?entry=${entry.id}&event=${event.id}`;
+    } catch (err) {
+      console.error('Join event error:', err);
+      showMsg('joinMsg', 'Could not reach the event service. Verify the Supabase settings and network connection.', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Join & Start Scoring';
+    }
+  }
+
+const themeButtons = document.querySelectorAll('[data-theme-option]');
+const storedTheme = localStorage.getItem('monument-theme');
+const initialTheme = storedTheme === 'augusta' || storedTheme === 'shadows' ? storedTheme : 'augusta';
+function applyTheme(theme) {
+  document.body.setAttribute('data-theme', theme);
+  themeButtons.forEach(button => {
+    const isActive = button.dataset.themeOption === theme;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+  localStorage.setItem('monument-theme', theme);
+}
+themeButtons.forEach(button => button.addEventListener('click', () => applyTheme(button.dataset.themeOption)));
+applyTheme(initialTheme);
+
+</script>
+</body>
+</html>
