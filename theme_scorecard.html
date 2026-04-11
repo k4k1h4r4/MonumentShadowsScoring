@@ -72,6 +72,7 @@
   body[data-theme="shadows"] .btn-gold, body[data-theme="shadows"] .save-btn.editing, body[data-theme="shadows"] .hole-pip.current { background: var(--gold); color: #0d1117; }
   body[data-theme="shadows"] .score-btn { background: #171f2a; color: var(--white); border-color: var(--border); }
   body[data-theme="shadows"] .score-btn:hover { background:#232c39; border-color:var(--gold); }
+  body[data-theme="shadows"] .score-value { color: var(--white); }
   body[data-theme="shadows"] .hole-pip.future { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.25); }
   body[data-theme="shadows"] .hole-pip.completed, body[data-theme="shadows"] .hole-pip.even { background:#232c39; border-color:#3c485c; }
   body[data-theme="shadows"] .lb-hole-cell.even { background:#232c39; color:#d4dbe6; }
@@ -411,6 +412,52 @@
     transition: background 0.2s;
   }
   .round-complete a:hover { background: var(--green-mid); }
+
+  @media (max-width: 600px) {
+    .score-wrap {
+      max-width: none;
+      width: 100%;
+      padding: 24px 12px 64px;
+    }
+    .hole-meta {
+      gap: 18px;
+    }
+    .score-input-block {
+      padding: 28px 16px;
+    }
+    .score-controls {
+      gap: 14px;
+    }
+    .score-btn {
+      width: 54px;
+      height: 54px;
+    }
+    .score-value {
+      font-size: 72px;
+      min-width: 96px;
+    }
+    .running-total {
+      padding: 14px 16px;
+    }
+    .mini-scorecard {
+      margin: 20px -12px 0;
+      width: calc(100% + 24px);
+    }
+    .mini-scorecard table {
+      min-width: 0;
+      width: 100%;
+      table-layout: fixed;
+    }
+    .mini-scorecard th,
+    .mini-scorecard td {
+      min-width: 0;
+      padding: 7px 2px;
+      font-size: 11px;
+    }
+    .mini-scorecard th {
+      font-size: 9px;
+    }
+  }
 </style>
 </head>
 <body data-theme="augusta">
