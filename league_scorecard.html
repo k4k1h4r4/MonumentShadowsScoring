@@ -333,17 +333,9 @@ const ALL_HOLES = [
 
 // Build the 9-hole sequence starting from startHole
 function buildHoleSequence(startHole) {
-  // Front 9 (1-9) wraps within 1-9; Back 9 (10-18) wraps within 10-18
-  const isFront = startHole <= 9;
-  const base = isFront ? 0 : 9;       // index offset into ALL_HOLES
-  const size = 9;                      // 9 holes per half
-  const startIdx = startHole - 1;      // 0-based index
-  const seq = [];
-  for (let i = 0; i < size; i++) {
-    const idx = base + ((startIdx - base + i) % size);
-    seq.push(ALL_HOLES[idx]);
-  }
-  return seq;
+  // Always show the active side in natural scorecard order.
+  // Front nine displays 1-9, back nine displays 10-18.
+  return startHole <= 9 ? ALL_HOLES.slice(0, 9) : ALL_HOLES.slice(9, 18);
 }
 
 // Determine if player gets a stroke on a given hole
@@ -363,9 +355,25 @@ function getStrokesOnHole(strokesOff, holeHdcp, nineHoles) {
 // State
 let match = null;
 let players = [];
-let scores = {}; // { [playerId_holeNum]: { gross, net } }
+let scores = {}; // { [playerId_holeNum]: { gross, net, id } }
 let holeSeq = [];
 let currentHoleIdx = 0;
+
+function getPreferredHoleIndex() {
+  if (!holeSeq.length) return 0;
+  const startHoleNum = match?.start_hole;
+  const startIdx = holeSeq.findIndex(h => h.num === startHoleNum);
+  const normalizedStartIdx = startIdx >= 0 ? startIdx : 0;
+
+  for (let offset = 0; offset < holeSeq.length; offset++) {
+    const idx = (normalizedStartIdx + offset) % holeSeq.length;
+    const hole = holeSeq[idx];
+    const allScored = players.every(p => scores[`${p.id}_${hole.num}`] !== undefined);
+    if (!allScored) return idx;
+  }
+
+  return normalizedStartIdx;
+}
 
 const params = new URLSearchParams(window.location.search);
 const matchId = params.get('match');
@@ -400,13 +408,8 @@ async function loadMatch() {
       scores[`${s.player_id}_${s.hole_num}`] = { gross: s.gross, net: s.net, id: s.id };
     });
 
-    // Find first unscored hole
-    currentHoleIdx = 0;
-    for (let i = 0; i < 9; i++) {
-      const allScored = players.every(p => scores[`${p.id}_${holeSeq[i].num}`] !== undefined);
-      if (!allScored) { currentHoleIdx = i; break; }
-      if (i === 8) currentHoleIdx = 8;
-    }
+    // Open on the next unscored hole in actual round order, starting from match.start_hole.
+    currentHoleIdx = getPreferredHoleIndex();
 
     renderAll();
   } catch(err) {
@@ -521,9 +524,10 @@ function renderHoleCard() {
   const getNet   = (pid) => scores[`${pid}_${hole.num}`]?.net;
 
   function playerColHTML(player, teamClass) {
-    const gross = getGross(player.id);
+    const savedGross = getGross(player.id);
     const strokes = getStrokesOnHole(player.strokes_off, hole.hdcp, holeSeq);
-    const netVal = (gross !== '') ? gross - strokes : null;
+    const displayGross = savedGross === '' ? hole.par : savedGross;
+    const netVal = displayGross - strokes;
     const strokeLabel = strokes > 0 ? `${strokes} stroke${strokes > 1 ? 's' : ''} off this hole` : 'No strokes off';
 
     return `
@@ -539,14 +543,15 @@ function renderHoleCard() {
           <button class="score-btn" onclick="adjustScore('${player.id}', ${hole.num}, -1)">−</button>
           <input class="score-input" type="number" min="1" max="15"
             id="gross_${player.id}_${hole.num}"
-            value="${gross}"
+            value="${displayGross}"
+            data-default-par="${hole.par}"
             oninput="onGrossInput('${player.id}', ${hole.num})"
           >
           <button class="score-btn" onclick="adjustScore('${player.id}', ${hole.num}, 1)">+</button>
         </div>
         <div class="net-display">
           <span class="net-label">Net</span>
-          <span class="net-pill" id="net_${player.id}_${hole.num}">${netVal !== null ? netVal : '—'}</span>
+          <span class="net-pill" id="net_${player.id}_${hole.num}">${netVal}</span>
         </div>
       </div>`;
   }
@@ -613,7 +618,9 @@ function renderHoleCard() {
 
       <div class="save-row">
         <button class="btn btn-gold" onclick="saveHole()">Save Hole ${hole.num}</button>
-        ${currentHoleIdx < 8 ? `<button class="btn" onclick="nextHole()">Next Hole →</button>` : `<button class="btn" onclick="showSummary()">View Final Results</button>`}
+        ${holeSeq.every(h => players.every(p => scores[`${p.id}_${h.num}`] !== undefined))
+          ? `<button class="btn" onclick="showSummary()">View Final Results</button>`
+          : `<button class="btn" onclick="nextHole()">Next Hole →</button>`}
         <span class="save-status" id="saveStatus"></span>
       </div>
       <div class="msg" id="saveMsg"></div>
@@ -690,7 +697,7 @@ function renderSummary() {
         </thead>
         <tbody>
           <tr>
-            <td><strong>Low Ball</strong><br><span style="font-family:'Lato',sans-serif;font-size:10px;color:var(--text-muted);letter-spacing:1px;">Best net per hole</span></td>
+            <td><strong>Low Ball</strong><br><span style="font-family:'Lato',sans-serif;font-size:10px;color:var(--text-muted);letter-spacing:1px;">Low net per hole</span></td>
             <td>${chip(lbWin, 'A')} <span style="font-family:'Lato',sans-serif;font-size:11px;color:var(--text-muted);margin-left:6px;">${t.lbA} holes won</span></td>
             <td>${chip(lbWin, 'B')} <span style="font-family:'Lato',sans-serif;font-size:11px;color:var(--text-muted);margin-left:6px;">${t.lbB} holes won</span></td>
           </tr>
@@ -726,6 +733,9 @@ function renderAll() {
     renderRunningTotal() +
     renderHoleCard() +
     (allScored ? renderSummary() : '');
+
+  // Keep the current hole editable even after prior scores have been saved.
+  players.forEach(player => window.onGrossInput(player.id, holeSeq[currentHoleIdx].num));
 }
 
 function showSummary() {
@@ -756,8 +766,10 @@ window.onGrossInput = function(playerId, holeNum) {
 
 window.adjustScore = function(playerId, holeNum, delta) {
   const input = document.getElementById(`gross_${playerId}_${holeNum}`);
-  const current = parseInt(input.value) || 0;
-  const newVal = Math.max(1, current + delta);
+  const defaultPar = parseInt(input.dataset.defaultPar) || 0;
+  const current = parseInt(input.value);
+  const baseValue = Number.isNaN(current) ? defaultPar : current;
+  const newVal = Math.max(1, baseValue + delta);
   input.value = newVal;
   window.onGrossInput(playerId, holeNum);
 };
@@ -767,7 +779,6 @@ window.saveHole = async function() {
   const status = document.getElementById('saveStatus');
   const msgEl = document.getElementById('saveMsg');
 
-  // Collect all 4 scores
   const entries = [];
   for (const player of players) {
     const input = document.getElementById(`gross_${player.id}_${hole.num}`);
@@ -777,27 +788,53 @@ window.saveHole = async function() {
       msgEl.className = 'msg error show';
       return;
     }
+
     const strokes = getStrokesOnHole(player.strokes_off, hole.hdcp, holeSeq);
     const net = gross - strokes;
-    entries.push({ player_id: player.id, match_id: matchId, hole_num: hole.num, gross, net });
+    const existing = scores[`${player.id}_${hole.num}`];
+    entries.push({
+      player_id: player.id,
+      match_id: matchId,
+      hole_num: hole.num,
+      gross,
+      net,
+      existingId: existing?.id || null
+    });
   }
 
   status.textContent = 'Saving…';
   status.className = 'save-status';
 
   try {
-    // Upsert all 4 scores
-    const res = await api('league_scores', {
-      method: 'POST',
-      headers: { 'Prefer': 'resolution=merge-duplicates,return=representation' },
-      body: JSON.stringify(entries)
-    });
+    const updates = entries.filter(e => e.existingId);
+    const inserts = entries.filter(e => !e.existingId).map(({ existingId, ...rest }) => rest);
 
-    if (!res.ok) throw new Error(await res.text());
+    for (const entry of updates) {
+      const patchRes = await api(`league_scores?id=eq.${entry.existingId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ gross: entry.gross, net: entry.net })
+      });
+      if (!patchRes.ok) throw new Error(await patchRes.text());
+    }
 
-    // Update local state
-    entries.forEach(e => {
-      scores[`${e.player_id}_${e.hole_num}`] = { gross: e.gross, net: e.net };
+    if (inserts.length) {
+      const insertRes = await api('league_scores', {
+        method: 'POST',
+        body: JSON.stringify(inserts)
+      });
+      if (!insertRes.ok) throw new Error(await insertRes.text());
+      const insertedRows = await insertRes.json();
+      insertedRows.forEach(row => {
+        scores[`${row.player_id}_${row.hole_num}`] = { gross: row.gross, net: row.net, id: row.id };
+      });
+    }
+
+    updates.forEach(entry => {
+      scores[`${entry.player_id}_${entry.hole_num}`] = {
+        gross: entry.gross,
+        net: entry.net,
+        id: entry.existingId
+      };
     });
 
     status.textContent = '✓ Saved';
@@ -814,11 +851,10 @@ window.saveHole = async function() {
 };
 
 window.nextHole = function() {
-  if (currentHoleIdx < 8) {
-    currentHoleIdx++;
-    renderAll();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
+  if (!holeSeq.length) return;
+  currentHoleIdx = (currentHoleIdx + 1) % holeSeq.length;
+  renderAll();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 // Theme switcher
