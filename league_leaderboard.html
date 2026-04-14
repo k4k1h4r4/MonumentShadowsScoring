@@ -251,17 +251,8 @@ const ALL_HOLES = [
 ];
 
 function buildHoleSequence(startHole) {
-  // Front 9 (1-9) wraps within 1-9; Back 9 (10-18) wraps within 10-18
-  const isFront = startHole <= 9;
-  const base = isFront ? 0 : 9;
-  const size = 9;
-  const startIdx = startHole - 1;
-  const seq = [];
-  for (let i = 0; i < size; i++) {
-    const idx = base + ((startIdx - base + i) % size);
-    seq.push(ALL_HOLES[idx]);
-  }
-  return seq;
+  // Always display holes in numeric order within the played side
+  return startHole <= 9 ? ALL_HOLES.slice(0, 9) : ALL_HOLES.slice(9, 18);
 }
 
 function getStrokesOnHole(strokesOff, holeHdcp, nineHoles) {
@@ -337,11 +328,14 @@ function calcResults(match, players, scores, holeSeq) {
   return { ptA, ptB, lbA, lbB, lbT, lhA, lhB, lhT, lbWinner, lhWinner, tnWinner, aTotalNet, bTotalNet, overallWinner, holeDetails, allScored, holesWithBothTeams };
 }
 
-function chip(winner, team) {
-  if (winner === 'T') return `<span class="point-chip half">½ Pt</span>`;
-  return winner === team
-    ? `<span class="point-chip won">1 Pt</span>`
-    : `<span class="point-chip lost">0 Pts</span>`;
+function chip(winner, team, detail = '') {
+  const label = winner === 'T'
+    ? `<span class="point-chip half">½ Pt</span>`
+    : winner === team
+      ? `<span class="point-chip won">1 Pt</span>`
+      : `<span class="point-chip lost">0 Pts</span>`;
+
+  return `${label}${detail ? `<div style="font-family:'Lato',sans-serif;font-size:10px;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;margin-top:6px;">${detail}</div>` : ''}`;
 }
 
 async function loadByCode() {
@@ -443,28 +437,28 @@ async function renderResults(matchId) {
             <tr class="result-team-a">
               <td>
                 <strong>Low Ball</strong>
-                <div style="font-family:'Lato',sans-serif;font-size:10px;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">Best net per hole · ${r.lbA}–${r.lbB}${r.lbT ? ` (${r.lbT} tied)` : ''}</div>
+                <div style="font-family:'Lato',sans-serif;font-size:10px;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">Best net per hole${r.lbT ? ` · ${r.lbT} tied` : ''}</div>
               </td>
-              <td>${chip(r.lbWinner, 'A')}</td>
-              <td>${chip(r.lbWinner, 'B')}</td>
+              <td>${chip(r.lbWinner, 'A', `${r.lbA} holes won`)}</td>
+              <td>${chip(r.lbWinner, 'B', `${r.lbB} holes won`)}</td>
             </tr>
             <tr class="result-team-b">
               <td>
                 <strong>Low Hole</strong>
-                <div style="font-family:'Lato',sans-serif;font-size:10px;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">Combined net per hole · ${r.lhA}–${r.lhB}${r.lhT ? ` (${r.lhT} tied)` : ''}</div>
+                <div style="font-family:'Lato',sans-serif;font-size:10px;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">Combined net per hole${r.lhT ? ` · ${r.lhT} tied` : ''}</div>
               </td>
-              <td>${chip(r.lhWinner, 'A')}</td>
-              <td>${chip(r.lhWinner, 'B')}</td>
+              <td>${chip(r.lhWinner, 'A', `${r.lhA} holes won`)}</td>
+              <td>${chip(r.lhWinner, 'B', `${r.lhB} holes won`)}</td>
             </tr>
             <tr class="result-team-a">
               <td>
                 <strong>Team Net Score</strong>
                 <div style="font-family:'Lato',sans-serif;font-size:10px;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">
-                  ${r.holesWithBothTeams > 0 ? `${match.team_a_name}: ${r.aTotalNet} · ${match.team_b_name}: ${r.bTotalNet}${r.allScored ? '' : ` (thru ${r.holesWithBothTeams})` }` : 'Round not yet started'}
+                  ${r.holesWithBothTeams > 0 ? `${r.allScored ? 'Final total net' : `Live total net thru ${r.holesWithBothTeams}`}` : 'Round not yet started'}
                 </div>
               </td>
-              <td>${r.tnWinner ? chip(r.tnWinner, 'A') : '<span style="color:var(--text-muted);font-family:Lato,sans-serif;font-size:11px;">—</span>'}</td>
-              <td>${r.tnWinner ? chip(r.tnWinner, 'B') : '<span style="color:var(--text-muted);font-family:Lato,sans-serif;font-size:11px;">—</span>'}</td>
+              <td>${r.tnWinner ? chip(r.tnWinner, 'A', `${r.aTotalNet}`) : '<span style="color:var(--text-muted);font-family:Lato,sans-serif;font-size:11px;">—</span>'}</td>
+              <td>${r.tnWinner ? chip(r.tnWinner, 'B', `${r.bTotalNet}`) : '<span style="color:var(--text-muted);font-family:Lato,sans-serif;font-size:11px;">—</span>'}</td>
             </tr>
             <tr class="result-total-row">
               <td>Total Points</td>
