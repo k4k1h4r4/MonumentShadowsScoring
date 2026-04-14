@@ -333,9 +333,14 @@ const ALL_HOLES = [
 
 // Build the 9-hole sequence starting from startHole
 function buildHoleSequence(startHole) {
+  // Front 9 (1-9) wraps within 1-9; Back 9 (10-18) wraps within 10-18
+  const isFront = startHole <= 9;
+  const base = isFront ? 0 : 9;       // index offset into ALL_HOLES
+  const size = 9;                      // 9 holes per half
+  const startIdx = startHole - 1;      // 0-based index
   const seq = [];
-  for (let i = 0; i < 9; i++) {
-    const idx = ((startHole - 1 + i) % 18);
+  for (let i = 0; i < size; i++) {
+    const idx = base + ((startIdx - base + i) % size);
     seq.push(ALL_HOLES[idx]);
   }
   return seq;
@@ -445,13 +450,13 @@ function getLiveRunningTotals() {
     const bScores = teamB.map(p => scores[`${p.id}_${hole.num}`]?.net).filter(n => n !== undefined);
     if (aScores.length < 2 || bScores.length < 2) return;
 
-    // Low Ball: best net on each team vs best net of other
+    // Low Ball: best net on each team
     const aMin = Math.min(...aScores), bMin = Math.min(...bScores);
     if (aMin < bMin) lbA++;
     else if (bMin < aMin) lbB++;
     else lbT++;
 
-    // Low Hole: team combined net
+    // Low Hole: combined net
     const aSum = aScores.reduce((a,b) => a+b, 0);
     const bSum = bScores.reduce((a,b) => a+b, 0);
     if (aSum < bSum) lhA++;
@@ -460,32 +465,47 @@ function getLiveRunningTotals() {
   });
 
   // Low Ball points
-  const lbTotal = lbA + lbB + lbT;
-  if (lbTotal === 0) { /* no holes played */ }
-  else if (lbA > lbB) ptA += 1;
-  else if (lbB > lbA) ptB += 1;
-  else { ptA += 0.5; ptB += 0.5; }
+  if (lbA + lbB + lbT > 0) {
+    if (lbA > lbB) ptA += 1;
+    else if (lbB > lbA) ptB += 1;
+    else { ptA += 0.5; ptB += 0.5; }
+  }
 
   // Low Hole points
-  if (lhA > lhB) ptA += 1;
-  else if (lhB > lhA) ptB += 1;
-  else if (lhA + lhB + lhT > 0) { ptA += 0.5; ptB += 0.5; }
-
-  // Team Net Score
-  const allHolesScored = holeSeq.every(h => players.every(p => scores[`${p.id}_${h.num}`] !== undefined));
-  if (allHolesScored) {
-    const aTotalNet = teamA.reduce((sum, p) => sum + holeSeq.reduce((s, h) => s + (scores[`${p.id}_${h.num}`]?.net || 0), 0), 0);
-    const bTotalNet = teamB.reduce((sum, p) => sum + holeSeq.reduce((s, h) => s + (scores[`${p.id}_${h.num}`]?.net || 0), 0), 0);
-    if (aTotalNet < bTotalNet) ptA += 1;
-    else if (bTotalNet < aTotalNet) ptB += 1;
+  if (lhA + lhB + lhT > 0) {
+    if (lhA > lhB) ptA += 1;
+    else if (lhB > lhA) ptB += 1;
     else { ptA += 0.5; ptB += 0.5; }
+  }
+
+  // Team Net Score — live running total (any holes scored counts)
+  const aTotalNet = teamA.reduce((sum, p) =>
+    sum + holeSeq.reduce((s, h) => s + (scores[`${p.id}_${h.num}`]?.net ?? 0), 0), 0);
+  const bTotalNet = teamB.reduce((sum, p) =>
+    sum + holeSeq.reduce((s, h) => s + (scores[`${p.id}_${h.num}`]?.net ?? 0), 0), 0);
+
+  // Count scored holes to know if any Team Net data exists
+  const holesWithBothTeams = holeSeq.filter(h =>
+    teamA.every(p => scores[`${p.id}_${h.num}`] !== undefined) &&
+    teamB.every(p => scores[`${p.id}_${h.num}`] !== undefined)
+  ).length;
+
+  const allHolesScored = holeSeq.every(h => players.every(p => scores[`${p.id}_${h.num}`] !== undefined));
+
+  // Award Team Net point based on current running totals (if at least 1 hole scored)
+  let tnWinner = null;
+  if (holesWithBothTeams > 0) {
+    if (aTotalNet < bTotalNet) { ptA += 1; tnWinner = 'A'; }
+    else if (bTotalNet < aTotalNet) { ptB += 1; tnWinner = 'B'; }
+    else { ptA += 0.5; ptB += 0.5; tnWinner = 'T'; }
   }
 
   return {
     ptA, ptB,
     lbA, lbB, lbT,
     lhA, lhB, lhT,
-    allHolesScored,
+    aTotalNet, bTotalNet,
+    holesWithBothTeams, allHolesScored, tnWinner,
     teamAName: match.team_a_name,
     teamBName: match.team_b_name
   };
@@ -602,6 +622,18 @@ function renderHoleCard() {
 
 function renderRunningTotal() {
   const t = getLiveRunningTotals();
+
+  // Team Net label: show live running total if any holes scored, otherwise em-dash
+  let tnLabel;
+  if (t.holesWithBothTeams === 0) {
+    tnLabel = `<div class="rt-breakdown">Net: —</div>`;
+  } else {
+    const tnStatus = t.tnWinner === 'T'
+      ? `tied`
+      : (t.tnWinner === 'A' ? `${t.teamAName} leads` : `${t.teamBName} leads`);
+    tnLabel = `<div class="rt-breakdown" style="color:var(--gold-light);">Net: ${t.aTotalNet} – ${t.bTotalNet}${t.allHolesScored ? '' : '*'}</div>`;
+  }
+
   return `
     <div class="running-total">
       <div class="rt-team">
@@ -609,7 +641,11 @@ function renderRunningTotal() {
         <div class="rt-score">${t.ptA}</div>
         <div class="rt-breakdown">LB: ${t.lbA}h · LH: ${t.lhA}h</div>
       </div>
-      <div class="rt-divider">Points</div>
+      <div style="text-align:center;">
+        <div class="rt-divider">Points</div>
+        ${tnLabel}
+        ${!t.allHolesScored && t.holesWithBothTeams > 0 ? `<div style="font-family:'Lato',sans-serif;font-size:9px;letter-spacing:1px;color:rgba(255,255,255,0.25);margin-top:3px;">* thru ${t.holesWithBothTeams} holes</div>` : ''}
+      </div>
       <div class="rt-team">
         <div class="rt-team-name">${t.teamBName}</div>
         <div class="rt-score">${t.ptB}</div>
@@ -620,26 +656,10 @@ function renderRunningTotal() {
 
 function renderSummary() {
   const t = getLiveRunningTotals();
-  const teamA = players.filter(p => p.team === 'A');
-  const teamB = players.filter(p => p.team === 'B');
 
-  // Determine final Team Net
-  const aTotalNet = teamA.reduce((sum, p) => sum + holeSeq.reduce((s, h) => s + (scores[`${p.id}_${h.num}`]?.net || 0), 0), 0);
-  const bTotalNet = teamB.reduce((sum, p) => sum + holeSeq.reduce((s, h) => s + (scores[`${p.id}_${h.num}`]?.net || 0), 0), 0);
-
-  // Low Ball winner
-  let lbWin, lhWin, tnWin;
-  if (t.lbA > t.lbB) lbWin = 'A';
-  else if (t.lbB > t.lbA) lbWin = 'B';
-  else lbWin = 'T';
-
-  if (t.lhA > t.lhB) lhWin = 'A';
-  else if (t.lhB > t.lhA) lhWin = 'B';
-  else lhWin = 'T';
-
-  if (aTotalNet < bTotalNet) tnWin = 'A';
-  else if (bTotalNet < aTotalNet) tnWin = 'B';
-  else tnWin = 'T';
+  const lbWin = t.lbA > t.lbB ? 'A' : (t.lbB > t.lbA ? 'B' : 'T');
+  const lhWin = t.lhA > t.lhB ? 'A' : (t.lhB > t.lhA ? 'B' : 'T');
+  const tnWin = t.tnWinner;
 
   function chip(winner, team) {
     if (winner === 'T') return `<span class="point-chip half">½ Point</span>`;
@@ -681,8 +701,8 @@ function renderSummary() {
           </tr>
           <tr>
             <td><strong>Team Net Score</strong><br><span style="font-family:'Lato',sans-serif;font-size:10px;color:var(--text-muted);letter-spacing:1px;">Combined net for round</span></td>
-            <td>${chip(tnWin, 'A')} <span style="font-family:'Lato',sans-serif;font-size:11px;color:var(--text-muted);margin-left:6px;">${aTotalNet} total net</span></td>
-            <td>${chip(tnWin, 'B')} <span style="font-family:'Lato',sans-serif;font-size:11px;color:var(--text-muted);margin-left:6px;">${bTotalNet} total net</span></td>
+            <td>${chip(tnWin, 'A')} <span style="font-family:'Lato',sans-serif;font-size:11px;color:var(--text-muted);margin-left:6px;">${t.aTotalNet} total net</span></td>
+            <td>${chip(tnWin, 'B')} <span style="font-family:'Lato',sans-serif;font-size:11px;color:var(--text-muted);margin-left:6px;">${t.bTotalNet} total net</span></td>
           </tr>
           <tr style="background:var(--green-pale);">
             <td><strong style="font-size:18px;">Total Points</strong></td>
