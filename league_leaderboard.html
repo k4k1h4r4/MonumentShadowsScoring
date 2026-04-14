@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>League Results — Monument Shadows</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green-deep:  #1a3d2b;
+    --green-mid:   #2d6040;
+    --green-light: #3d7a52;
+    --green-pale:  #e8f0eb;
+    --gold:        #c9a84c;
+    --gold-light:  #e8c97a;
+    --white:       #fafaf8;
+    --cream:       #f2ede4;
+    --charcoal:    #1c1c1c;
+    --text-body:   #2c2c2c;
+    --text-muted:  #6b6b5e;
+    --border:      #c4b896;
+    --error:       #c0392b;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'EB Garamond', Georgia, serif; background: var(--cream); color: var(--text-body); min-height: 100vh; display: flex; flex-direction: column; }
+
+  body[data-theme="shadows"] { --green-deep:#0d1117; --green-mid:#232c39; --green-light:#7f8ca3; --green-pale:#171c23; --gold:#b58a56; --gold-light:#e8d6bb; --white:#f4efe6; --cream:#0f141b; --charcoal:#05070a; --text-body:#ece1d4; --text-muted:#a9b0bb; --border:#3a4657; --error:#d98274; }
+  body[data-theme="shadows"] { background: linear-gradient(180deg, #0b0f14 0%, #10151c 100%); }
+  body[data-theme="shadows"] header, body[data-theme="shadows"] .top-bar { background: #0d1117; border-color: var(--gold); }
+  body[data-theme="shadows"] .result-card, body[data-theme="shadows"] .scorecard-card, body[data-theme="shadows"] .loading-card, body[data-theme="shadows"] .lookup-bar { background: rgba(19,25,34,0.96); border-color: var(--border); color: var(--text-body); }
+  body[data-theme="shadows"] .hero-title { color: var(--white); }
+  body[data-theme="shadows"] nav a { color: rgba(232,224,210,0.72); }
+  body[data-theme="shadows"] nav a:hover, body[data-theme="shadows"] nav a.active { color: var(--white); border-bottom-color: var(--gold); }
+  body[data-theme="shadows"] table td, body[data-theme="shadows"] table th { border-color: var(--border); }
+  body[data-theme="shadows"] .point-chip.won { background: rgba(45,96,64,0.4); color: #7ec99a; border-color: rgba(45,96,64,0.6); }
+  body[data-theme="shadows"] .point-chip.lost { background: rgba(192,57,43,0.2); color: #e08070; border-color: rgba(192,57,43,0.4); }
+  body[data-theme="shadows"] .point-chip.half { background: rgba(201,168,76,0.15); color: var(--gold-light); border-color: rgba(201,168,76,0.3); }
+  body[data-theme="shadows"] .sc-par { background: rgba(19,25,34,0.96); }
+  body[data-theme="shadows"] .sc-cell-stroke { background: rgba(201,168,76,0.08); color: var(--gold-light); }
+  body[data-theme="shadows"] .btn { background: #171f2a; }
+  body[data-theme="shadows"] .btn-gold { background: var(--gold); color: #0d1117; }
+  body[data-theme="shadows"] input { background: rgba(19,25,34,0.96); color: var(--text-body); border-color: var(--border); }
+  body[data-theme="shadows"] .winner-banner { background: rgba(19,25,34,0.96); }
+  body[data-theme="shadows"] .result-team-a td:first-child { border-left-color: #2d6040; }
+  body[data-theme="shadows"] .result-team-b td:first-child { border-left-color: #8b4c2a; }
+
+  .top-bar { background: var(--green-deep); color: var(--gold-light); text-align: center; padding: 8px 20px; font-family: 'Lato', sans-serif; font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; }
+  header { background: var(--green-deep); border-bottom: 3px solid var(--gold); box-shadow: 0 2px 16px rgba(0,0,0,0.35); }
+  .header-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 72px; }
+  .header-controls { display:flex; align-items:center; gap:18px; }
+  .theme-switcher { display:inline-flex; align-items:center; gap:4px; padding:4px; border:1px solid rgba(201,168,76,0.35); background: rgba(255,255,255,0.08); border-radius:999px; }
+  .theme-button { appearance:none; border:none; background:transparent; color:var(--text-muted); font-family:'Lato',sans-serif; font-size:10px; letter-spacing:2px; text-transform:uppercase; padding:9px 14px; border-radius:999px; cursor:pointer; transition: background 0.25s, color 0.25s; }
+  .theme-button.active { background: linear-gradient(180deg, rgba(201,168,76,0.28) 0%, rgba(201,168,76,0.12) 100%); color: var(--white); box-shadow: inset 0 0 0 1px rgba(201,168,76,0.24); }
+  .logo-block { text-decoration: none; }
+  .logo-name { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; color: var(--white); display: block; line-height: 1.1; }
+  .logo-sub { font-family: 'Lato', sans-serif; font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); display: block; }
+  nav { display:flex; gap:36px; align-items:center; }
+  nav a { font-family: 'Lato', sans-serif; font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--gold-light); text-decoration:none; padding-bottom:4px; border-bottom:2px solid transparent; transition: color 0.2s, border-color 0.2s; }
+  nav a:hover, nav a.active { color: var(--white); border-bottom-color: var(--gold); }
+
+  .hero { background: linear-gradient(160deg, #0d2417 0%, #1a3d2b 50%, #2d6040 100%); padding: 48px 32px; text-align: center; position: relative; overflow: hidden; }
+  .hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 80%, rgba(201,168,76,0.08) 0%, transparent 60%); }
+  .hero-eyebrow { font-family: 'Lato', sans-serif; font-size: 10px; letter-spacing: 5px; text-transform: uppercase; color: var(--gold); margin-bottom: 14px; }
+  .hero-title { font-family: 'Playfair Display', serif; font-size: clamp(28px, 5vw, 52px); font-weight: 400; color: var(--white); line-height: 1.15; margin-bottom: 14px; }
+  .hero-title em { font-style: italic; color: var(--gold-light); }
+  .hero-rule { width: 48px; height: 2px; background: var(--gold); margin: 16px auto; }
+  .hero-desc { font-size: 17px; color: rgba(255,255,255,0.6); font-style: italic; max-width: 440px; margin: 0 auto; }
+
+  .main { max-width: 960px; margin: -36px auto 0; padding: 0 24px 72px; position: relative; z-index: 10; }
+
+  .loading-card { background: var(--white); border: 1px solid var(--border); padding: 48px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.08); }
+  .loading-text { font-family: 'Lato', sans-serif; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-muted); }
+
+  .lookup-bar {
+    background: var(--white);
+    border: 1px solid var(--border);
+    padding: 20px 28px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  }
+  .lookup-bar label { font-family: 'Lato', sans-serif; font-size: 10px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; margin-bottom: 0; }
+  .lookup-bar input { flex: 1; padding: 8px 12px; border: 1px solid var(--border); background: var(--cream); font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; letter-spacing: 8px; text-transform: uppercase; color: var(--green-deep); outline: none; max-width: 120px; text-align: center; }
+  body[data-theme="shadows"] .lookup-bar input { color: var(--white); }
+  .lookup-bar input:focus { border-color: var(--green-mid); }
+  .btn { padding: 12px 24px; background: var(--green-deep); color: var(--white); border: none; font-family: 'Lato', sans-serif; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; cursor: pointer; transition: background 0.2s; text-decoration: none; display: inline-block; text-align: center; }
+  .btn:hover { background: var(--green-mid); }
+  .btn-gold { background: var(--gold); color: var(--green-deep); }
+  .btn-gold:hover { background: var(--gold-light); }
+  .btn-sm { padding: 8px 16px; font-size: 9px; }
+
+  /* WINNER BANNER */
+  .winner-banner {
+    background: var(--green-deep);
+    border: 1px solid var(--gold);
+    padding: 28px 36px;
+    text-align: center;
+    margin-bottom: 24px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    position: relative;
+    overflow: hidden;
+  }
+  .winner-banner::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, rgba(201,168,76,0.12) 0%, transparent 70%); }
+  .winner-eyebrow { font-family: 'Lato', sans-serif; font-size: 9px; letter-spacing: 4px; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; position: relative; }
+  .winner-name { font-family: 'Playfair Display', serif; font-size: 36px; color: var(--white); position: relative; }
+  .winner-score { font-family: 'Lato', sans-serif; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,0.5); margin-top: 6px; position: relative; }
+  .winner-match { font-family: 'EB Garamond', serif; font-size: 17px; font-style: italic; color: rgba(255,255,255,0.6); margin-top: 10px; position: relative; }
+
+  /* POINTS TABLE */
+  .result-card { background: var(--white); border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.08); margin-bottom: 24px; }
+  .result-header { background: var(--green-deep); padding: 18px 28px; display: flex; align-items: center; justify-content: space-between; }
+  .result-title { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--white); }
+  .result-sub { font-family: 'Lato', sans-serif; font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); }
+  .result-header-right { font-family: 'Lato', sans-serif; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold-light); }
+
+  table.result-table { width: 100%; border-collapse: collapse; }
+  table.result-table th { font-family: 'Lato', sans-serif; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-muted); padding: 10px 16px; border-bottom: 1px solid var(--border); text-align: left; background: var(--green-pale); }
+  table.result-table td { padding: 14px 16px; border-bottom: 1px solid var(--border); font-family: 'EB Garamond', serif; font-size: 17px; vertical-align: middle; }
+  table.result-table tr:last-child td { border-bottom: none; }
+  .result-team-a td:first-child { border-left: 3px solid var(--green-mid); }
+  .result-team-b td:first-child { border-left: 3px solid #8b4c2a; }
+  .result-total-row td { background: var(--green-pale); font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 600; }
+  body[data-theme="shadows"] .result-total-row td { background: rgba(19,25,34,0.96); }
+
+  .point-chip { display: inline-block; padding: 3px 10px; border: 1px solid; font-family: 'Lato', sans-serif; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+  .point-chip.won { background: #eaf4ee; color: var(--green-mid); border-color: var(--green-mid); }
+  .point-chip.lost { background: #fdecea; color: var(--error); border-color: var(--error); }
+  .point-chip.half { background: #fdf8ec; color: #9a7a1a; border-color: var(--gold); }
+
+  /* HOLE-BY-HOLE SCORECARD */
+  .scorecard-card { background: var(--white); border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.08); margin-bottom: 24px; overflow-x: auto; }
+  .scorecard-header { background: var(--green-deep); padding: 18px 28px; }
+  .scorecard-title { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--white); }
+  .scorecard-sub { font-family: 'Lato', sans-serif; font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-top: 3px; }
+
+  table.sc-table { width: 100%; border-collapse: collapse; min-width: 680px; }
+  table.sc-table th { font-family: 'Lato', sans-serif; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: center; color: var(--text-muted); background: var(--green-pale); white-space: nowrap; }
+  table.sc-table th.sc-name { text-align: left; min-width: 120px; }
+  table.sc-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: center; font-family: 'EB Garamond', serif; font-size: 15px; }
+  table.sc-table td.sc-name-cell { text-align: left; font-size: 15px; white-space: nowrap; padding-left: 16px; }
+  table.sc-table .sc-par td { background: var(--green-pale); font-family: 'Lato', sans-serif; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); padding: 5px 10px; }
+  table.sc-table .sc-team-a-row td:first-child { border-left: 3px solid var(--green-mid); }
+  table.sc-table .sc-team-b-row td:first-child { border-left: 3px solid #8b4c2a; }
+  table.sc-table tr:last-child td { border-bottom: none; }
+  .sc-cell-stroke { background: rgba(201,168,76,0.1); color: var(--gold); font-weight: 700; }
+  .sc-cell-empty { color: var(--text-muted); }
+  .sc-total { font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 600; color: var(--green-deep); }
+  body[data-theme="shadows"] .sc-total { color: var(--white); }
+  .hole-winner-a { background: rgba(45,96,64,0.08); }
+  .hole-winner-b { background: rgba(139,76,42,0.06); }
+
+  .msg { font-family: 'Lato', sans-serif; font-size: 11px; padding: 12px 16px; margin-bottom: 16px; display: none; }
+  .msg.show { display: block; }
+  .msg.error { background: #fdecea; color: var(--error); border-left: 3px solid var(--error); }
+
+  footer { background: var(--charcoal); color: rgba(255,255,255,0.4); text-align: center; padding: 28px 32px; border-top: 3px solid var(--gold); margin-top: auto; font-family: 'Lato', sans-serif; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; }
+
+  @media (max-width: 700px) {
+    .lookup-bar { flex-wrap: wrap; }
+    nav { display: none; }
+    .header-controls { gap: 0; }
+    .theme-switcher { margin-left: auto; }
+  }
+</style>
+</head>
+<body data-theme="augusta">
+
+<div class="top-bar">Monument Shadows Golf Club &nbsp;·&nbsp; League Match Results</div>
+
+<header>
+  <div class="header-inner">
+    <a class="logo-block" href="index.html">
+      <span class="logo-name">Monument Shadows</span>
+      <span class="logo-sub">Golf Club</span>
+    </a>
+    <div class="header-controls">
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="league_hub.html">League</a>
+        <a href="league_leaderboard.html" class="active">Results</a>
+      </nav>
+      <div class="theme-switcher">
+        <button class="theme-button" type="button" data-theme-option="augusta" aria-pressed="true">Augusta</button>
+        <button class="theme-button" type="button" data-theme-option="shadows" aria-pressed="false">Shadows</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="hero-eyebrow">League Match Results</div>
+  <h1 class="hero-title" id="heroTitle">Match <em>Results</em></h1>
+  <div class="hero-rule"></div>
+  <p class="hero-desc" id="heroDesc">Enter a match code to view full results and scorecard.</p>
+</div>
+
+<div class="main" id="mainContent">
+  <div class="lookup-bar">
+    <label for="codeInput">Match Code</label>
+    <input type="text" id="codeInput" maxlength="3" placeholder="---" oninput="this.value=this.value.toUpperCase()">
+    <button class="btn btn-gold" onclick="loadByCode()">Load Results</button>
+  </div>
+  <div class="msg" id="lookupMsg"></div>
+  <div class="loading-card">
+    <div class="loading-text">Enter a match code above to view results</div>
+  </div>
+</div>
+
+<footer>Monument Shadows Golf Club &nbsp;·&nbsp; Gering, NE</footer>
+
+<script>
+const SUPABASE_URL = 'https://znqnnaslskjewfxcswxw.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_0pVZp5JcAc9lSIClZD5eqQ_9Q33F7Uf';
+
+function api(path, options = {}) {
+  return fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...options,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+      ...options.headers
+    }
+  });
+}
+
+const ALL_HOLES = [
+  { num: 1,  name: 'Omen',       par: 4, hdcp: 7  },
+  { num: 2,  name: 'Hemlock',    par: 3, hdcp: 15 },
+  { num: 3,  name: 'Badlands',   par: 5, hdcp: 3  },
+  { num: 4,  name: 'Sentinel',   par: 4, hdcp: 11 },
+  { num: 5,  name: 'Strangle',   par: 4, hdcp: 1  },
+  { num: 6,  name: 'Rhumba',     par: 3, hdcp: 17 },
+  { num: 7,  name: 'Flicker',    par: 5, hdcp: 5  },
+  { num: 8,  name: 'Balderdash', par: 4, hdcp: 9  },
+  { num: 9,  name: 'Darkfall',   par: 4, hdcp: 13 },
+  { num: 10, name: 'Harbinger',  par: 4, hdcp: 6  },
+  { num: 11, name: 'Exile',      par: 3, hdcp: 16 },
+  { num: 12, name: 'Shroud',     par: 5, hdcp: 2  },
+  { num: 13, name: 'Lure',       par: 4, hdcp: 10 },
+  { num: 14, name: 'Obscura',    par: 4, hdcp: 12 },
+  { num: 15, name: 'Mercy',      par: 4, hdcp: 4  },
+  { num: 16, name: 'Dirge',      par: 3, hdcp: 18 },
+  { num: 17, name: 'Rotwind',    par: 5, hdcp: 8  },
+  { num: 18, name: 'Reckoning',  par: 4, hdcp: 14 },
+];
+
+function buildHoleSequence(startHole) {
+  const seq = [];
+  for (let i = 0; i < 9; i++) {
+    const idx = ((startHole - 1 + i) % 18);
+    seq.push(ALL_HOLES[idx]);
+  }
+  return seq;
+}
+
+function getStrokesOnHole(strokesOff, holeHdcp, nineHoles) {
+  if (strokesOff <= 0) return 0;
+  const sorted = [...nineHoles].sort((a, b) => a.hdcp - b.hdcp);
+  const strokeHoles = sorted.slice(0, Math.min(strokesOff, 9)).map(h => h.hdcp);
+  return strokeHoles.includes(holeHdcp) ? 1 : 0;
+}
+
+function calcResults(match, players, scores, holeSeq) {
+  const teamA = players.filter(p => p.team === 'A');
+  const teamB = players.filter(p => p.team === 'B');
+
+  let lbA = 0, lbB = 0, lbT = 0;
+  let lhA = 0, lhB = 0, lhT = 0;
+  const holeDetails = [];
+
+  holeSeq.forEach(hole => {
+    const aNet = teamA.map(p => scores[`${p.id}_${hole.num}`]?.net);
+    const bNet = teamB.map(p => scores[`${p.id}_${hole.num}`]?.net);
+    const aComplete = aNet.every(n => n !== undefined && n !== null);
+    const bComplete = bNet.every(n => n !== undefined && n !== null);
+
+    const detail = { hole, aNet, bNet, lbWinner: null, lhWinner: null };
+
+    if (aComplete && bComplete) {
+      const aMin = Math.min(...aNet), bMin = Math.min(...bNet);
+      if (aMin < bMin) { lbA++; detail.lbWinner = 'A'; }
+      else if (bMin < aMin) { lbB++; detail.lbWinner = 'B'; }
+      else { lbT++; detail.lbWinner = 'T'; }
+
+      const aSum = aNet.reduce((a,b)=>a+b,0), bSum = bNet.reduce((a,b)=>a+b,0);
+      detail.aSum = aSum; detail.bSum = bSum;
+      if (aSum < bSum) { lhA++; detail.lhWinner = 'A'; }
+      else if (bSum < aSum) { lhB++; detail.lhWinner = 'B'; }
+      else { lhT++; detail.lhWinner = 'T'; }
+    }
+    holeDetails.push(detail);
+  });
+
+  let ptA = 0, ptB = 0;
+
+  // Low Ball
+  if (lbA > lbB) ptA += 1;
+  else if (lbB > lbA) ptB += 1;
+  else if (lbA + lbB + lbT > 0) { ptA += 0.5; ptB += 0.5; }
+
+  // Low Hole
+  if (lhA > lhB) ptA += 1;
+  else if (lhB > lhA) ptB += 1;
+  else if (lhA + lhB + lhT > 0) { ptA += 0.5; ptB += 0.5; }
+
+  // Team Net
+  const allScored = holeSeq.every(h => players.every(p => scores[`${p.id}_${h.num}`] !== undefined));
+  let aTotalNet = null, bTotalNet = null, tnWinner = null;
+  if (allScored) {
+    aTotalNet = teamA.reduce((sum, p) => sum + holeSeq.reduce((s, h) => s + (scores[`${p.id}_${h.num}`]?.net || 0), 0), 0);
+    bTotalNet = teamB.reduce((sum, p) => sum + holeSeq.reduce((s, h) => s + (scores[`${p.id}_${h.num}`]?.net || 0), 0), 0);
+    if (aTotalNet < bTotalNet) { ptA += 1; tnWinner = 'A'; }
+    else if (bTotalNet < aTotalNet) { ptB += 1; tnWinner = 'B'; }
+    else { ptA += 0.5; ptB += 0.5; tnWinner = 'T'; }
+  }
+
+  let lbWinner = lbA > lbB ? 'A' : (lbB > lbA ? 'B' : 'T');
+  let lhWinner = lhA > lhB ? 'A' : (lhB > lhA ? 'B' : 'T');
+  let overallWinner = ptA > ptB ? 'A' : (ptB > ptA ? 'B' : 'T');
+
+  return { ptA, ptB, lbA, lbB, lbT, lhA, lhB, lhT, lbWinner, lhWinner, tnWinner, aTotalNet, bTotalNet, overallWinner, holeDetails, allScored };
+}
+
+function chip(winner, team) {
+  if (winner === 'T') return `<span class="point-chip half">½ Pt</span>`;
+  return winner === team
+    ? `<span class="point-chip won">1 Pt</span>`
+    : `<span class="point-chip lost">0 Pts</span>`;
+}
+
+async function loadByCode() {
+  const code = document.getElementById('codeInput').value.trim().toUpperCase();
+  const msgEl = document.getElementById('lookupMsg');
+  if (code.length !== 3) {
+    msgEl.textContent = 'Please enter a 3-character match code.';
+    msgEl.className = 'msg error show';
+    return;
+  }
+  msgEl.className = 'msg';
+  document.querySelector('.loading-card').innerHTML = '<div class="loading-text">Loading…</div>';
+
+  try {
+    const res = await api(`league_matches?code=eq.${code}&select=*`);
+    const matches = await res.json();
+    if (!matches.length) {
+      msgEl.textContent = 'Match not found. Check the code and try again.';
+      msgEl.className = 'msg error show';
+      document.querySelector('.loading-card').innerHTML = '<div class="loading-text">No match found.</div>';
+      return;
+    }
+    await renderResults(matches[0].id);
+  } catch(err) {
+    msgEl.textContent = 'Could not connect. Try again.';
+    msgEl.className = 'msg error show';
+  }
+}
+
+async function renderResults(matchId) {
+  try {
+    const [mRes, pRes, sRes] = await Promise.all([
+      api(`league_matches?id=eq.${matchId}&select=*`),
+      api(`league_players?match_id=eq.${matchId}&select=*&order=team.asc,slot.asc`),
+      api(`league_scores?match_id=eq.${matchId}&select=*`)
+    ]);
+    const [match] = await mRes.json();
+    const players = await pRes.json();
+    const rawScores = await sRes.json();
+
+    const holeSeq = buildHoleSequence(match.start_hole);
+    const scores = {};
+    rawScores.forEach(s => {
+      scores[`${s.player_id}_${s.hole_num}`] = { gross: s.gross, net: s.net };
+    });
+
+    const r = calcResults(match, players, scores, holeSeq);
+    const teamA = players.filter(p => p.team === 'A');
+    const teamB = players.filter(p => p.team === 'B');
+
+    // Update hero
+    document.getElementById('heroTitle').innerHTML = `${match.team_a_name} <em>vs</em> ${match.team_b_name}`;
+    document.getElementById('heroDesc').textContent = `${match.name} · ${match.date}`;
+
+    // Winner banner
+    let winnerHTML = '';
+    if (r.allScored) {
+      let winnerText, scoreText;
+      if (r.overallWinner === 'T') {
+        winnerText = 'Match Tied';
+        scoreText = `${r.ptA} – ${r.ptB} · All square`;
+      } else {
+        const wTeam = r.overallWinner === 'A' ? match.team_a_name : match.team_b_name;
+        const wPts = r.overallWinner === 'A' ? r.ptA : r.ptB;
+        const lPts = r.overallWinner === 'A' ? r.ptB : r.ptA;
+        winnerText = `${wTeam} Wins`;
+        scoreText = `${wPts} – ${lPts} Points`;
+      }
+      winnerHTML = `
+        <div class="winner-banner">
+          <div class="winner-eyebrow">Match Complete</div>
+          <div class="winner-name">${winnerText}</div>
+          <div class="winner-score">${scoreText}</div>
+          <div class="winner-match">${match.name} · ${match.date}</div>
+        </div>`;
+    }
+
+    // Points breakdown table
+    const pointsHTML = `
+      <div class="result-card">
+        <div class="result-header">
+          <div>
+            <div class="result-title">Points Breakdown</div>
+            <div class="result-sub">3 points available</div>
+          </div>
+          <div class="result-header-right">
+            <a class="btn btn-sm" href="league_scorecard.html?match=${matchId}" style="text-decoration:none;">✏ Edit Scorecard</a>
+          </div>
+        </div>
+        <table class="result-table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>${match.team_a_name}</th>
+              <th>${match.team_b_name}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="result-team-a">
+              <td>
+                <strong>Low Ball</strong>
+                <div style="font-family:'Lato',sans-serif;font-size:10px;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">Best net per hole · ${r.lbA}–${r.lbB}${r.lbT ? ` (${r.lbT} tied)` : ''}</div>
+              </td>
+              <td>${chip(r.lbWinner, 'A')}</td>
+              <td>${chip(r.lbWinner, 'B')}</td>
+            </tr>
+            <tr class="result-team-b">
+              <td>
+                <strong>Low Hole</strong>
+                <div style="font-family:'Lato',sans-serif;font-size:10px;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">Combined net per hole · ${r.lhA}–${r.lhB}${r.lhT ? ` (${r.lhT} tied)` : ''}</div>
+              </td>
+              <td>${chip(r.lhWinner, 'A')}</td>
+              <td>${chip(r.lhWinner, 'B')}</td>
+            </tr>
+            <tr class="result-team-a">
+              <td>
+                <strong>Team Net Score</strong>
+                <div style="font-family:'Lato',sans-serif;font-size:10px;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">
+                  ${r.allScored ? `${match.team_a_name}: ${r.aTotalNet} · ${match.team_b_name}: ${r.bTotalNet}` : 'Round in progress'}
+                </div>
+              </td>
+              <td>${r.tnWinner ? chip(r.tnWinner, 'A') : '<span style="color:var(--text-muted);font-family:Lato,sans-serif;font-size:11px;">—</span>'}</td>
+              <td>${r.tnWinner ? chip(r.tnWinner, 'B') : '<span style="color:var(--text-muted);font-family:Lato,sans-serif;font-size:11px;">—</span>'}</td>
+            </tr>
+            <tr class="result-total-row">
+              <td>Total Points</td>
+              <td>${r.ptA}</td>
+              <td>${r.ptB}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`;
+
+    // Hole-by-hole scorecard
+    function netCell(val, hasStroke) {
+      if (val === undefined || val === null) return `<td class="sc-cell-empty">—</td>`;
+      return `<td${hasStroke ? ' class="sc-cell-stroke"' : ''}>${val}${hasStroke ? '•' : ''}</td>`;
+    }
+
+    const holeHeaders = holeSeq.map(h => `<th>${h.num}<br><span style="font-weight:400;opacity:0.7;">${h.name.substring(0,4)}</span></th>`).join('');
+    const parRow = `<tr class="sc-par"><td class="sc-name-cell" style="text-align:left;">Par</td>${holeSeq.map(h => `<td>${h.par}</td>`).join('')}<td></td></tr>`;
+    const hdcpRow = `<tr class="sc-par"><td class="sc-name-cell" style="text-align:left;">Hdcp</td>${holeSeq.map(h => `<td>${h.hdcp}</td>`).join('')}<td></td></tr>`;
+
+    function playerRow(player, rowClass) {
+      const cells = holeSeq.map(h => {
+        const s = scores[`${player.id}_${h.num}`];
+        const hasStroke = getStrokesOnHole(player.strokes_off, h.hdcp, holeSeq) > 0;
+        return netCell(s?.net, hasStroke);
+      }).join('');
+      const total = holeSeq.reduce((sum, h) => sum + (scores[`${player.id}_${h.num}`]?.net || 0), 0);
+      const hasAny = holeSeq.some(h => scores[`${player.id}_${h.num}`] !== undefined);
+      return `<tr class="${rowClass}">
+        <td class="sc-name-cell">${player.name}<br><span style="font-family:'Lato',sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);">${player.strokes_off > 0 ? `${player.strokes_off} off` : 'scratch'}</span></td>
+        ${cells}
+        <td class="sc-total">${hasAny ? total : '—'}</td>
+      </tr>`;
+    }
+
+    // Hole winner row
+    const lbWinnerRow = `<tr class="sc-par"><td class="sc-name-cell" style="text-align:left;">Low Ball</td>${r.holeDetails.map(d => {
+      if (!d.lbWinner) return `<td class="sc-cell-empty">—</td>`;
+      if (d.lbWinner === 'T') return `<td style="color:var(--gold);font-size:11px;">T</td>`;
+      return `<td style="font-family:'Lato',sans-serif;font-size:10px;font-weight:700;color:${d.lbWinner==='A'?'var(--green-mid)':'#8b4c2a'};">${d.lbWinner==='A' ? match.team_a_name.substring(0,3) : match.team_b_name.substring(0,3)}</td>`;
+    }).join('')}<td></td></tr>`;
+
+    const lhWinnerRow = `<tr class="sc-par"><td class="sc-name-cell" style="text-align:left;">Low Hole</td>${r.holeDetails.map(d => {
+      if (!d.lhWinner) return `<td class="sc-cell-empty">—</td>`;
+      if (d.lhWinner === 'T') return `<td style="color:var(--gold);font-size:11px;">T</td>`;
+      return `<td style="font-family:'Lato',sans-serif;font-size:10px;font-weight:700;color:${d.lhWinner==='A'?'var(--green-mid)':'#8b4c2a'};">${d.lhWinner==='A' ? match.team_a_name.substring(0,3) : match.team_b_name.substring(0,3)}</td>`;
+    }).join('')}<td></td></tr>`;
+
+    const scorecardHTML = `
+      <div class="scorecard-card">
+        <div class="scorecard-header">
+          <div class="scorecard-title">Hole-by-Hole Net Scores</div>
+          <div class="scorecard-sub">• = stroke received on this hole</div>
+        </div>
+        <div style="overflow-x:auto;">
+        <table class="sc-table">
+          <thead>
+            <tr><th class="sc-name">Player</th>${holeHeaders}<th>Total</th></tr>
+          </thead>
+          <tbody>
+            ${parRow}
+            ${hdcpRow}
+            ${teamA.map(p => playerRow(p, 'sc-team-a-row')).join('')}
+            ${teamB.map(p => playerRow(p, 'sc-team-b-row')).join('')}
+            ${lbWinnerRow}
+            ${lhWinnerRow}
+          </tbody>
+        </table>
+        </div>
+        <div style="padding:10px 16px;border-top:1px solid var(--border);font-family:'Lato',sans-serif;font-size:10px;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;">
+          Team A: ${match.team_a_name} (${teamA.map(p=>p.name).join(', ')}) &nbsp;·&nbsp; Team B: ${match.team_b_name} (${teamB.map(p=>p.name).join(', ')})
+        </div>
+      </div>`;
+
+    document.getElementById('mainContent').innerHTML =
+      `<div class="lookup-bar">
+        <label for="codeInput">Match Code</label>
+        <input type="text" id="codeInput" maxlength="3" placeholder="---" value="${match.code}" oninput="this.value=this.value.toUpperCase()">
+        <button class="btn btn-gold" onclick="loadByCode()">Load Results</button>
+      </div>
+      <div class="msg" id="lookupMsg"></div>` +
+      winnerHTML +
+      pointsHTML +
+      scorecardHTML;
+
+  } catch(err) {
+    console.error(err);
+    document.getElementById('mainContent').innerHTML = '<div class="loading-card"><div class="loading-text">Failed to load results.</div></div>';
+  }
+}
+
+// Auto-load from URL param
+const params = new URLSearchParams(window.location.search);
+const matchId = params.get('match');
+const code = params.get('code');
+
+if (matchId) {
+  document.getElementById('mainContent').innerHTML =
+    `<div class="lookup-bar">
+      <label for="codeInput">Match Code</label>
+      <input type="text" id="codeInput" maxlength="3" placeholder="---" oninput="this.value=this.value.toUpperCase()">
+      <button class="btn btn-gold" onclick="loadByCode()">Load Results</button>
+    </div>
+    <div class="msg" id="lookupMsg"></div>
+    <div class="loading-card"><div class="loading-text">Loading match…</div></div>`;
+  renderResults(matchId);
+} else if (code) {
+  document.getElementById('codeInput').value = code;
+  loadByCode();
+}
+
+window.loadByCode = async function() {
+  const codeEl = document.getElementById('codeInput');
+  if (!codeEl) return;
+  const c = codeEl.value.trim().toUpperCase();
+  const msgEl = document.getElementById('lookupMsg');
+  if (c.length !== 3) {
+    if (msgEl) { msgEl.textContent = 'Please enter a 3-character match code.'; msgEl.className = 'msg error show'; }
+    return;
+  }
+  if (msgEl) msgEl.className = 'msg';
+  try {
+    const res = await api(`league_matches?code=eq.${c}&select=*`);
+    const matches = await res.json();
+    if (!matches.length) {
+      if (msgEl) { msgEl.textContent = 'Match not found.'; msgEl.className = 'msg error show'; }
+      return;
+    }
+    await renderResults(matches[0].id);
+  } catch(err) {
+    if (msgEl) { msgEl.textContent = 'Could not connect. Try again.'; msgEl.className = 'msg error show'; }
+  }
+};
+
+// Theme
+const themeButtons = document.querySelectorAll('[data-theme-option]');
+const storedTheme = localStorage.getItem('monument-theme');
+const initialTheme = storedTheme === 'augusta' || storedTheme === 'shadows' ? storedTheme : 'augusta';
+function applyTheme(theme) {
+  document.body.setAttribute('data-theme', theme);
+  themeButtons.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.themeOption === theme);
+    btn.setAttribute('aria-pressed', String(btn.dataset.themeOption === theme));
+  });
+  localStorage.setItem('monument-theme', theme);
+}
+themeButtons.forEach(btn => btn.addEventListener('click', () => applyTheme(btn.dataset.themeOption)));
+applyTheme(initialTheme);
+</script>
+</body>
+</html>
